@@ -54,7 +54,7 @@ function animation_robot_ENIB_final()
     hPlat = plot(ax, [0, 0], [0, 0], 'k--', 'LineWidth', 2, 'DisplayName', 'Plateforme');
     
     % Étiquette pour l'affichage des coordonnées
-    lblPos = uilabel(fig, 'Position', [350 210 400 30], 'Text', 'Initialisation...', 'FontSize', 12, 'FontWeight', 'bold');
+    lblPos = uilabel(fig, 'Position', [300 210 400 30], 'Text', 'Initialisation...', 'FontSize', 12, 'FontWeight', 'bold');
 
     %% 4. ÉTAT ET MISE À JOUR %%
     % Vecteur initial (seed) pour le solveur : [x, y, th, b1A, b1B]
@@ -85,8 +85,8 @@ function animation_robot_ENIB_final()
             hPlat.XData = [xA(4) xB(4)]; hPlat.YData = [yA(4) yB(4)];
             
             % Mise à jour de l'affichage numérique
-            lblPos.Text = sprintf('X: %.2f | Y: %.2f | Th: %.2f° | b1A: %.2f°', ...
-                new_sol(1), new_sol(2), rad2deg(new_sol(3)), rad2deg(new_sol(4)));
+            lblPos.Text = sprintf('X: %.2f | Y: %.2f | Th: %.2f° | b1A: %.2f° | b1B: %.2f°', ...
+                new_sol(1), new_sol(2), rad2deg(new_sol(3)), rad2deg(new_sol(4)),rad2deg(new_sol(5)));
             
             drawnow limitrate;
         end
