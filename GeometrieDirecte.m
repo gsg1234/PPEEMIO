@@ -76,17 +76,19 @@ end
 Q1_total=[q1A1;q1A2;q1A3];
 Q3_total=[q3A1;q3A2;q3A3];
 
-R1.plot(Q1_total(1, :));
+R1.plot(Q1_total(1,:), 'delay', 0, 'nojaxes', 'noshadow');
 hold on;
-R3.plot(Q3_total(1, :));
+R3.plot(Q3_total(1,:), 'delay', 0, 'nojaxes', 'noshadow');
+
 
 for k = 1:size(Q1_total, 1)
     
     % Esta es la función clave del toolbox para suavidad:
     R1.animate(Q1_total(k, :));
-    R3.animate(Q3_total(k, :)); 
+    R3.animate(Q3_total(k, :));
+    pause(0.01)
 end
-
+hold off;
 
 
 function [q1, q3] = calcular_paso(tA, tB, f_solver, seed, a3)
