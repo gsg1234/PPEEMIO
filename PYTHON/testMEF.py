@@ -4,13 +4,14 @@ import matplotlib.pyplot as plt
 POID = 1                            # Poid                          [N]
 N_ELEM = 10                          # Nombre d'elements
 N_NODES = N_ELEM + 1                # Nombre de nodes
-AREA = 0.0001                       # Area section                  [m^2]
-YOUNG = 60000                       # Young modulus                 [Pa]
-INERTIA = 8.333e-10                 # 2eme moment d'inertia         [m^4]
-NINC = 1000                           # Nombre d'increments pour F
-L0_T = 0.2                            # Longeur initiale              [m]
+AREA = 0.01*0.005                       # Area section                  [m^2]
+YOUNG = 6000000                   # Young modulus                 [Pa]
+INERTIA = (0.01*0.005**3)/12                    # 2eme moment d'inertia         [m^4]
+NINC = 20                           # Nombre d'increments pour F
+L0_T = 0.2                          # Longeur initiale              [m]
 r = np.sqrt(INERTIA / AREA)         # r = sqrt(I/A)                 [m]
 maxiter = 100
+tol = 0.001
 
 
 class MEF():
@@ -27,7 +28,7 @@ class MEF():
         self.q = np.zeros(3*N_NODES)
         self.u = np.zeros(3*N_NODES)
         self.dU = np.zeros(3*N_NODES)
-        self.dU[::3] = np.linspace(0, L0_T, N_NODES)
+        self.u[::3] = np.linspace(0, L0_T, N_NODES)
         self.L0 = np.ones(N_ELEM) * (L0_T / N_ELEM)
         self.L = np.ones(N_ELEM) * (L0_T / N_ELEM)
 
@@ -149,7 +150,7 @@ class MEF():
 
             self.actualiser_ks()
             
-            self.dU = np.linalg.matmul(self.invK, self.dF).reshape((3*N_NODES,))
+            self.dU = np.linalg.matmul(self.invK, self.dF)
 
             # Actualization position
             self.u += self.dU
@@ -168,7 +169,7 @@ class MEF():
 
             # Loop correction dU
             for k in range(maxiter):
-                if (np.linalg.norm(R) <= 0.01):
+                if (np.linalg.norm(R) <= tol):
                     print("Convergence")
                     break
 
@@ -192,20 +193,25 @@ class MEF():
                 R = self.q - self.F
 
 
-
-
-
 if __name__ == "__main__":
     solver = MEF()
     solver.solve()
 
     x = solver.u[::3]
     y = solver.u[1::3]
+    tita = solver.u[2::3]
 
     print(x)
     print(y)
+    print(tita)
 
-    plt.plot(x,y)
+    fig, ax = plt.subplots()
+
+    #ax.set_xlim(-0.01, 0.25)
+    #ax.set_ylim(-0.25, 0.25)
+    ax.grid(True)
+
+    ax.set_aspect('equal', adjustable='datalim')
+    ax.plot(x, y, '-o')
 
     plt.show()
-    
