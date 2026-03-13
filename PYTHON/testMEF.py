@@ -1,38 +1,39 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-POID = 1                            # Poid                          [N]
-N_ELEM = 10                          # Nombre d'elements
-N_NODES = N_ELEM + 1                # Nombre de nodes
-AREA = 0.0001                       # Area section                  [m^2]
-YOUNG = 60000                       # Young modulus                 [Pa]
-INERTIA = 8.333e-10                 # 2eme moment d'inertia         [m^4]
-NINC = 1000                           # Nombre d'increments pour F
-L0_T = 0.2                            # Longeur initiale              [m]
-r = np.sqrt(INERTIA / AREA)         # r = sqrt(I/A)                 [m]
-maxiter = 100
-
+POID = 0.0981                           # Poid                          [N]
+N_ELEM = 10                             # Nombre d'elements
+N_NODES = N_ELEM + 1                    # Nombre de nodes
+AREA = 0.01*0.005                       # Area section                  [m^2]
+YOUNG = 60000                         # Young modulus                 [Pa]
+INERTIA = (0.01*0.005**3)/12            # 2eme moment d'inertia         [m^4]
+NINC = 20                               # Nombre d'increments pour F
+L0_T = 0.2                              # Longeur initiale              [m]
+r = np.sqrt(INERTIA / AREA)             # r = sqrt(I/A)                 [m]
+maxiter = 100                           # Iteration max pour Newton-Raphson
+tol = 0.001                             # Tolerance pour Newton-Raphson
 
 class MEF():
     def __init__(self):
         self.Beta_0 = np.zeros(N_ELEM)
         self.Beta = np.zeros(N_ELEM)
-        # F = [Fx1, Fy1, M1, Fx2, Fy2, M2,...]
-        self.F = np.zeros(3*N_NODES)
+        self.F = np.zeros(3*N_NODES)                        # F = [Fx1, Fy1, M1, Fx2, Fy2, M2,...]
         self.dF = np.zeros(3*N_NODES)
-        self.dF[-2] = -0.0981 / NINC   # Force vertical sur le dernier element
-        # ql = [N, M1, M2] sur chaque element
-        self.ql = np.zeros(3*N_ELEM)
-        # Efforts internes globales sur chaque node qi = BT * qli
-        self.q = np.zeros(3*N_NODES)
+        self.dF[-2] = -POID / NINC                          # Force vertical sur le dernier element
+        self.ql = np.zeros(3*N_ELEM)                        # ql = [N, M1, M2] sur chaque element
+        self.q = np.zeros(3*N_NODES)                        # Efforts internes globales sur chaque node qi = BT * qli
         self.u = np.zeros(3*N_NODES)
+        self.u[::3] = np.linspace(0, L0_T, N_NODES)         # Position initiale sur axis X
         self.dU = np.zeros(3*N_NODES)
-        self.dU[::3] = np.linspace(0, L0_T, N_NODES)
-        self.L0 = np.ones(N_ELEM) * (L0_T / N_ELEM)
+        self.L0 = np.ones(N_ELEM) * (L0_T / N_ELEM) 
         self.L = np.ones(N_ELEM) * (L0_T / N_ELEM)
 
         # Construction beta0 en function de la configuration initiale
-        self.Beta_0 = np.atan2(self.u[4::3] - self.u[1:-2:3], self.u[3::3] - self.u[0:-3:3])
+        x1 = self.u[0:-3:3]
+        x2 = self.u[3::3]
+        y1 = self.u[1:-2:3]
+        y2 = self.u[4::3]
+        self.Beta_0 = np.atan2(y2 - y1, x2 - x1)
 
         self.cos = np.cos(self.Beta_0)
         self.sin = np.sin(self.Beta_0)
@@ -73,15 +74,13 @@ class MEF():
         self.K[2, :] = np.zeros((1, 3*(N_ELEM+1)))
         self.K[:, 2] = np.zeros((3*(N_ELEM+1)))
         self.K[2, 2] = 1
-        self.F[0] = 0
 
-    def actualiser_B(self):
+    def actualiser_ks(self):
+        # Actualiser B avec la nouveau configuration des elements
         self.B = np.array([[       -self.cos,        -self.sin,  np.zeros(N_ELEM),        self.cos,         self.sin, np.zeros(N_ELEM)],
                            [-self.sin/self.L,  self.cos/self.L,   np.ones(N_ELEM), self.sin/self.L, -self.cos/self.L, np.zeros(N_ELEM)],
                            [-self.sin/self.L,  self.cos/self.L,  np.zeros(N_ELEM), self.sin/self.L, -self.cos/self.L,  np.ones(N_ELEM)]])
-
-    def actualiser_ks(self):
-        self.actualiser_B()
+        
         # Actualisation Ks et calcul de q
         for i in range(N_ELEM):
             N = self.ql[3*i]
@@ -93,13 +92,14 @@ class MEF():
 
         # Conditions aux limites
         self.restrictions()
-
+        """
         try:
             self.invK = np.linalg.inv(self.K)
 
         except:
             print("K no inversible")
             quit()
+        """
 
     def actualiser_conf(self):
         # Actualization L
@@ -109,9 +109,10 @@ class MEF():
         y2 = self.u[4::3]
         tita = self.u[2::3]
 
+        # Nouveau longeur apres l'increment dF
         self.L = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
-        # Actualization Beta pour noveau configuration
+        # Actualization Beta apres l'increment dF
         self.Beta = np.atan2(y2 - y1, x2 - x1)
 
         self.cos = np.cos(self.Beta)
@@ -149,18 +150,22 @@ class MEF():
 
             self.actualiser_ks()
             
-            self.dU = np.linalg.matmul(self.invK, self.dF).reshape((3*N_NODES,))
+            # dU = Ks^-1 * dF
+            self.dU = np.linalg.solve(self.K, self.dF)
 
-            # Actualization position
+            # Actualization position Un+1 = Un + dU
             self.u += self.dU
 
+            # Calcul de nouveau longeur des elements, beta, tita et deformation axiale
             tita, ul = self.actualiser_conf()
 
+            # Forces internes repere locale
             self.actualiser_iforces(tita=tita, ul=ul)
 
+            # Forces internes repere globale
             self.actualiser_global_iforces()
 
-            # Correction dU iteratif
+            # Correction dU iteratif avec Newton-Raphson
             R = self.q - self.F
 
             u_cur = self.u
@@ -168,21 +173,20 @@ class MEF():
 
             # Loop correction dU
             for k in range(maxiter):
-                if (np.linalg.norm(R) <= 0.01):
+                if (np.linalg.norm(R) <= tol):
                     print("Convergence")
                     break
 
                 # Actualization Ks pour nouveau iteration
                 self.actualiser_ks()
 
-                # Correction dU
-                #print(R.shape)
-                #print(self.invK.shape)
-                dUk -= np.linalg.matmul(self.invK, R)
+                # Correction dUk+1 = dUk - K^-1 * R
+                dUk -= np.linalg.solve(self.K, R)
 
-                # u_cur = u(n+1) + du(k+1)
+                # u_cur = Un+1 + dUk+1
                 u_cur = self.u + dUk
 
+                # Nouveau calcul de deformations apres iteration Newton-Raphson0
                 tita, ul = self.actualiser_conf()
 
                 self.actualiser_iforces(tita=tita, ul=ul)
@@ -192,20 +196,26 @@ class MEF():
                 R = self.q - self.F
 
 
-
-
-
 if __name__ == "__main__":
     solver = MEF()
     solver.solve()
 
     x = solver.u[::3]
     y = solver.u[1::3]
+    tita = solver.u[2::3]
 
-    print(x)
-    print(y)
+    print(f"x = {x}")
+    print(f"y = {y}")
+    print(f"tita = {tita}")
 
-    plt.plot(x,y)
+    fig, ax = plt.subplots()
+
+    ax.set_title("Modèle corotational")
+    ax.set_xlabel("Position X")
+    ax.set_ylabel("Position Y")
+    ax.grid(True)
+    ax.set_aspect('equal', adjustable='datalim')
+
+    ax.plot(x, y, '-o')
 
     plt.show()
-    
