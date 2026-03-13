@@ -1,0 +1,10 @@
+L = 100;
+r = 50;
+d1 = 200;
+d3 = 200;
+l=20;
+pasos = 100;
+dmax=200;
+dmin=100;
+r_eq_max=sqrt((-r+l*cos(pi/4))^2+(-dmax-l*sin(pi/4))^2);
+r_eq_min=sqrt((-r+l*cos(pi/4))^2+(-dmin-l*sin(pi/4))^2);
