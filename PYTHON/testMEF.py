@@ -1,14 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-POID = 0.0981                           # Poid                          [N]
+large = 0.01
+haut = 0.005
+L0_T = 0.2                              # Longeur initiale              [m]
+POID = 1220*large*haut*L0_T              # Poid = dens * vol             [N]
 N_ELEM = 10                             # Nombre d'elements
 N_NODES = N_ELEM + 1                    # Nombre de nodes
 AREA = 0.01*0.005                       # Area section                  [m^2]
-YOUNG = 60000                         # Young modulus                 [Pa]
+YOUNG = 60000                          # Young modulus                 [Pa] min 107611
 INERTIA = (0.01*0.005**3)/12            # 2eme moment d'inertia         [m^4]
 NINC = 20                               # Nombre d'increments pour F
-L0_T = 0.2                              # Longeur initiale              [m]
 r = np.sqrt(INERTIA / AREA)             # r = sqrt(I/A)                 [m]
 maxiter = 100                           # Iteration max pour Newton-Raphson
 tol = 0.001                             # Tolerance pour Newton-Raphson
@@ -19,7 +21,6 @@ class MEF():
         self.Beta = np.zeros(N_ELEM)
         self.F = np.zeros(3*N_NODES)                        # F = [Fx1, Fy1, M1, Fx2, Fy2, M2,...]
         self.dF = np.zeros(3*N_NODES)
-        self.dF[-2] = -POID / NINC                          # Force vertical sur le dernier element
         self.ql = np.zeros(3*N_ELEM)                        # ql = [N, M1, M2] sur chaque element
         self.q = np.zeros(3*N_NODES)                        # Efforts internes globales sur chaque node qi = BT * qli
         self.u = np.zeros(3*N_NODES)
@@ -58,7 +59,15 @@ class MEF():
         self.kt = np.zeros((6, 6))
 
         # 6x6 kt_sigma (0 initialement)
-        self.k_sigma = np.zeros((6, 6))        
+        self.k_sigma = np.zeros((6, 6))
+
+    def forces_externes(self):
+        # Poid de la poutre [0 1 1 1 1 ... 0.5] -POID/(N_ELEM*NINC)
+        self.dF[4:-3:3] = -POID / (N_ELEM*NINC)
+        self.dF[-2] = -POID / (N_ELEM*NINC*2)
+
+        # Forces punctuelles, fair += pour ne pas suscrire le poid de la poutre
+        self.dF[-2] += -0.0981 / NINC
 
     def restrictions(self):
         # Ex pour poutre encastré dans le node 0
@@ -81,6 +90,9 @@ class MEF():
                            [-self.sin/self.L,  self.cos/self.L,   np.ones(N_ELEM), self.sin/self.L, -self.cos/self.L, np.zeros(N_ELEM)],
                            [-self.sin/self.L,  self.cos/self.L,  np.zeros(N_ELEM), self.sin/self.L, -self.cos/self.L,  np.ones(N_ELEM)]])
         
+        # Clear matrice Ks
+        self.K.fill(0)
+
         # Actualisation Ks et calcul de q
         for i in range(N_ELEM):
             N = self.ql[3*i]
@@ -92,22 +104,14 @@ class MEF():
 
         # Conditions aux limites
         self.restrictions()
-        """
-        try:
-            self.invK = np.linalg.inv(self.K)
 
-        except:
-            print("K no inversible")
-            quit()
-        """
-
-    def actualiser_conf(self):
+    def actualiser_conf(self, u):
         # Actualization L
-        x1 = self.u[0:-3:3]
-        x2 = self.u[3::3]
-        y1 = self.u[1:-2:3]
-        y2 = self.u[4::3]
-        tita = self.u[2::3]
+        x1 = u[0:-3:3]
+        x2 = u[3::3]
+        y1 = u[1:-2:3]
+        y2 = u[4::3]
+        tita = u[2::3]
 
         # Nouveau longeur apres l'increment dF
         self.L = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
@@ -143,7 +147,10 @@ class MEF():
         for i in range(N_ELEM):
             self.q[3*i:3*i+6] += np.linalg.matmul(self.B[:, :, i].T, self.ql[3*i:3*i+3])
 
+        self.q[0:3] = 0
+
     def solve(self):
+        self.forces_externes()
         # Loop dF
         for n in range(NINC): 
             self.F += self.dF
@@ -157,7 +164,7 @@ class MEF():
             self.u += self.dU
 
             # Calcul de nouveau longeur des elements, beta, tita et deformation axiale
-            tita, ul = self.actualiser_conf()
+            tita, ul = self.actualiser_conf(self.u)
 
             # Forces internes repere locale
             self.actualiser_iforces(tita=tita, ul=ul)
@@ -186,14 +193,17 @@ class MEF():
                 # u_cur = Un+1 + dUk+1
                 u_cur = self.u + dUk
 
-                # Nouveau calcul de deformations apres iteration Newton-Raphson0
-                tita, ul = self.actualiser_conf()
+                # Nouveau calcul de deformations apres iteration Newton-Raphson
+                tita, ul = self.actualiser_conf(u_cur)
 
                 self.actualiser_iforces(tita=tita, ul=ul)
 
                 self.actualiser_global_iforces()
 
                 R = self.q - self.F
+            
+            # Apres NR Un+1 = U_cur
+            self.u = u_cur
 
 
 if __name__ == "__main__":
@@ -203,10 +213,12 @@ if __name__ == "__main__":
     x = solver.u[::3]
     y = solver.u[1::3]
     tita = solver.u[2::3]
+    F = solver.F
 
     print(f"x = {x}")
     print(f"y = {y}")
     print(f"tita = {tita}")
+    print(f"F = {F}")
 
     fig, ax = plt.subplots()
 
@@ -217,5 +229,8 @@ if __name__ == "__main__":
     ax.set_aspect('equal', adjustable='datalim')
 
     ax.plot(x, y, '-o')
+
+    for i in range(N_NODES):
+        ax.quiver(x[i], y[i], F[3*i], F[3*i+1], angles='xy', scale_units='xy', scale=1.8 if i == N_ELEM else 1/15)
 
     plt.show()
