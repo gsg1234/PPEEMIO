@@ -4,6 +4,7 @@ from calculer_GD import calculer_GD
 from calculer_GI import calculer_GI
 from animate import animate
 import matplotlib.pyplot as plt
+from verifierSpTr_Trayectoire import verifierSpTr_Trayectoire
 
 if __name__ == '__main__':
     p_cuarto = int(p.pasos/4)
@@ -14,36 +15,36 @@ if __name__ == '__main__':
     
     seed = [0, -150, 100, 100]
     
+
     # --- GEOMETRÍA DIRECTA ---
     print('\nCalcul Étape 1 : th1 en mouvement...')
-    q1A1, q3A1 = [], []
+    Q1_total, Q3_total, sol = [], [], []
     for i in range(p_cuarto):
-        q1, q3, seed = calculer_GD(tA_tray[i], th3, seed)
-        q1A1.append(q1); q3A1.append(q3)
+        q1, q3, s, seed = calculer_GD(tA_tray[i], th3, seed)
+        Q1_total.append(q1); Q3_total.append(q3); sol.append(s)
     for i in range(p_cuarto):
-        q1, q3, seed = calculer_GD(tA_tray[p_cuarto-1-i], th3, seed)
-        q1A1.append(q1); q3A1.append(q3)
+        q1, q3, s, seed = calculer_GD(tA_tray[p_cuarto-1-i], th3, seed)
+        Q1_total.append(q1); Q3_total.append(q3); sol.append(s)
         
     print('Calcul Étape 2 : th3 en mouvement...')
-    q1A2, q3A2 = [], []
     for i in range(p_cuarto):
-        q1, q3, seed = calculer_GD(th1, tB_tray[i], seed)
-        q1A2.append(q1); q3A2.append(q3)
+        q1, q3, s, seed = calculer_GD(th1, tB_tray[i], seed)
+        Q1_total.append(q1); Q3_total.append(q3); sol.append(s)
     for i in range(p_cuarto):
-        q1, q3, seed = calculer_GD(th1, tB_tray[p_cuarto-1-i], seed)
-        q1A2.append(q1); q3A2.append(q3)
+        q1, q3, s, seed = calculer_GD(th1, tB_tray[p_cuarto-1-i], seed)
+        Q1_total.append(q1); Q3_total.append(q3); sol.append(s)
         
     print('Calcul Étape 3 : th1 et th3 en mouvement...')
-    q1A3, q3A3 = [], []
     for i in range(p_cuarto):
-        q1, q3, seed = calculer_GD(tA_tray[i], tB_tray[i], seed)
-        q1A3.append(q1); q3A3.append(q3)
+        q1, q3, s, seed = calculer_GD(tA_tray[i], tB_tray[i], seed)
+        Q1_total.append(q1); Q3_total.append(q3); sol.append(s)
     for i in range(p_cuarto):
-        q1, q3, seed = calculer_GD(tA_tray[p_cuarto-1-i], tB_tray[p_cuarto-1-i], seed)
-        q1A3.append(q1); q3A3.append(q3)
+        q1, q3, s, seed = calculer_GD(tA_tray[p_cuarto-1-i], tB_tray[p_cuarto-1-i], seed)
+        Q1_total.append(q1); Q3_total.append(q3); sol.append(s)
 
-    Q1_total = np.vstack((q1A1, q1A2, q1A3))
-    Q3_total = np.vstack((q3A1, q3A2, q3A3))
+    Q1_total = np.array(Q1_total)
+    Q3_total = np.array(Q3_total)
+    sol = np.array(sol)
     print("Iniciando Animación GD...")
     animate(Q1_total, Q3_total, 1)
     
@@ -63,12 +64,22 @@ if __name__ == '__main__':
     ax.plot(Q3_total[:,1])
     plt.show()
 
+    fig, ax = plt.subplots(figsize=(8, 8))
+    fig.canvas.manager.set_window_title('Q temporal')
+    fig.patch.set_facecolor('white')
+    ax.grid(True)
+    ax.plot(sol[:,0])
+    ax.plot(sol[:,1])
+    plt.show()
+
     # --- GI CIRCLE ---
     seed = [0,0,100,100]
     print("\nCalculando GI Circular...")
     t = np.linspace(0, 2*np.pi, p.pasos)
-    x_tray = 20 * np.cos(t)
-    y_tray = 20 * np.sin(t) - 120
+    x_tray = 50 * np.cos(t)
+    y_tray = 50 * np.sin(t) - 120
+
+    verifierSpTr_Trayectoire(x_tray, y_tray, True)
     
     Q1_GI, Q3_GI = [], []
     for i in range(p.pasos):

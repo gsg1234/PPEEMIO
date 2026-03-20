@@ -11,3 +11,6 @@ dmin = 100
 
 r_eq_max = np.sqrt((-r + l_len*np.cos(np.pi/4))**2 + (-dmax - l_len*np.sin(np.pi/4))**2)
 r_eq_min = np.sqrt((-r + l_len*np.cos(np.pi/4))**2 + (-dmin - l_len*np.sin(np.pi/4))**2)
+
+print(f"R_eq_max: {r_eq_max:.2f}")
+print(f"R_eq_min: {r_eq_min:.2f}")

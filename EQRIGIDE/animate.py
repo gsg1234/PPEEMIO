@@ -18,7 +18,7 @@ def animate(Q1_total, Q3_total, trajectoire):
     theta_c = np.linspace(0, 2*np.pi, 100)
     ax.plot(p.L + p.r*np.cos(theta_c), p.r*np.sin(theta_c), 'k:', linewidth=0.5)
     ax.plot(-p.L + p.r*np.cos(theta_c), p.r*np.sin(theta_c), 'k:', linewidth=0.5)
-    ax.plot([-p.L, p.L], [0, 0], 'k--', linewidth=1)
+    ax.plot([-p.L, p.L], [0, 0], 'k', linewidth=1)
     
     h_r1_prox, = ax.plot([], [], 'b', linewidth=4)
     h_r1_cyl,  = ax.plot([], [], color=[0.2, 0.2, 0.8], linewidth=8)

@@ -2,13 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import parametres as p
 
-Q1 = np.array([-np.pi/4, 150])
+Q1 = np.array([0, 150])
 plt.ion()
 fig, ax = plt.subplots(figsize=(8, 8))
 fig.canvas.manager.set_window_title('Robot EMIO')
 fig.patch.set_facecolor('white')
-ax.set_xlim([0, 150])
-ax.set_ylim([-150, 50])
+ax.set_xlim([40, 160])
+ax.set_ylim([-200, 50])
 ax.set_aspect('equal')
 ax.grid(True)
 
@@ -20,6 +20,8 @@ h_r1_cyl,  = ax.plot([], [], 'k', linewidth=8)
 h_r1_rod,  = ax.plot([], [], color=[0.6, 0.6, 0.6], linewidth=3)
 h_r1_eff,  = ax.plot([], [], color=[0.6, 0.6, 0.6], linewidth=3)
 h_r1_effadd, = ax.plot([], [], color=[1.0, 1.0, 1.0], linewidth=3)
+r_eq, = ax.plot([], [], color=[1.0, 0.8, 0.8], linewidth=3)
+proj_line,= ax.plot([],[], color="#039b96", linewidth=3, label='projection')
 
 t1, d1_val = Q1[0], Q1[1]
 p0_1 = np.array([p.L, 0])
@@ -34,6 +36,8 @@ h_r1_cyl.set_data([p1_1[0], p_mid1[0]], [p1_1[1], p_mid1[1]])
 h_r1_rod.set_data([p1_1[0], p2_1[0]], [p1_1[1], p2_1[1]])
 h_r1_eff.set_data([p2_1[0], p3_1[0]], [p2_1[1], p3_1[1]])
 h_r1_effadd.set_data([p1_1[0], p2_1aux[0]], [p1_1[1], p2_1aux[1]])
+r_eq.set_data([p0_1[0], p3_1[0]], [p0_1[1], p3_1[1]])
+proj_line.set_data([p3_1[0], p3_1[0]], [p3_1[1],p0_1[1]])
 
 plt.ioff()
 plt.show()
