@@ -1,9 +1,10 @@
 import numpy as np
 
-N_ELEM = 10
-N_NODES = N_ELEM+1
+POID = 10
 
-x = np.zeros(30)
-x[::3] = np.linspace(0, 9, 10)
+x = np.zeros(3*11)
+x[4:-3:3] = POID / 10
+x[1] = POID / (10*2)
+x[-2] = POID / (10*2)
 
 print(x)
