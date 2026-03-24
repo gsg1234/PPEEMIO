@@ -30,7 +30,7 @@ def calculer_GI(x_val, y_val, seed):
         x_diff = float(P3[0] - P1[0])
         th = np.arctan(y_diff / x_diff)
         alpha= 270* np.pi/180 + res.x[0] + res.x[1]
-        sol=[th,alpha]
+
     else:
         warnings.warn(f'Convergence failed at x={x_val}, y={y_val}. Keeping previous seed.')
         q1 = [0, 0]
