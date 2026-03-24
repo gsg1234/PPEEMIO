@@ -4,18 +4,20 @@ import matplotlib.pyplot as plt
 import cProfile
 import pstats
 
+#np.seterr(all='raise')
+
 large = 0.01
 haut = 0.005
-L0_T = 10*2.54/100                              # Longeur initiale              [m]
-POID = 1220*large*haut*L0_T              # Poid = dens * vol             [N]
-N_ELEM = 7                             # Nombre d'elements
+L0_T = 10*2.54/100                      # Longeur initiale              [m]
+POID = 1220*large*haut*L0_T             # Poid = dens * vol             [N]
+N_ELEM = 9                              # Nombre d'elements
 N_NODES = N_ELEM + 1                    # Nombre de nodes
 AREA = 0.00258064                       # Area section                  [m^2]
-YOUNG = 6.895e8                          # Young modulus                 [Pa] min 107611
-INERTIA = 5.5496e-7            # 2eme moment d'inertia         [m^4]
+YOUNG = 6.895e8                         # Young modulus                 [Pa] min 107611
+INERTIA = 5.5496e-7                     # 2eme moment d'inertia         [m^4]
 NINC = 20                               # Nombre d'increments pour F
 r = np.sqrt(INERTIA / AREA)             # r = sqrt(I/A)                 [m]
-maxiter = 100000                           # Iteration max pour Newton-Raphson
+maxiter = 50                        # Iteration max pour Newton-Raphson
 tol = 0.001                             # Tolerance pour Newton-Raphson
 
 class MEF():
@@ -69,8 +71,10 @@ class MEF():
         #self.dF[4:-3:3] = -POID / (N_ELEM*NINC)
         #self.dF[-2] = -POID / (N_ELEM*NINC*2)
 
+        #self.dF[int(N_ELEM/2)] = -10000 / NINC
+
         # Forces punctuelles, fair += pour ne pas suscrire le poid de la poutre
-        self.dF[-2] += -40000 / NINC            # Example paper force poctuelle
+        self.dF[-2] += -8*4448 / NINC            # Example paper force poctuelle
         #self.dF[-1] += -0.2*9465.47 / NINC     # Example paper moment
 
     def restrictions(self):
@@ -87,6 +91,19 @@ class MEF():
         self.K[2, :] = np.zeros((1, 3*(N_ELEM+1)))
         self.K[:, 2] = np.zeros((3*(N_ELEM+1)))
         self.K[2, 2] = 1
+        """
+        self.K[-3, :] = np.zeros((1, 3*(N_ELEM+1)))
+        self.K[:, -3] = np.zeros((3*(N_ELEM+1)))
+        self.K[-3, -3] = 1
+        # Restriction mobilite axis Y
+        self.K[-2, :] = np.zeros((1, 3*(N_ELEM+1)))
+        self.K[:, -2] = np.zeros((3*(N_ELEM+1)))
+        self.K[-2, -2] = 1
+        # Restriction rotation
+        self.K[-1, :] = np.zeros((1, 3*(N_ELEM+1)))
+        self.K[:, -1] = np.zeros((3*(N_ELEM+1)))
+        self.K[-1, -1] = 1
+        """
 
     def actualiser_ks(self):
         sin_L = self.sin/self.L
@@ -122,25 +139,32 @@ class MEF():
         M1 = self.ql[1::3]
         M2 = self.ql[2::3]
 
-        ktt = np.einsum('kin, kl, ljn -> ijn', self.B, self.C, self.B)
+        self.kt = np.einsum('kin, kl, ljn -> ijn', self.B, self.C, self.B)
+
+        alpha = N / self.L                     # (N_ELEM,)
+        beta  = (M1 + M2) / self.L**2          # (N_ELEM,)
+
+        zz = np.einsum('in,jn->ijn', self.z, self.z)   # (6,6,N_ELEM)
+        rz = np.einsum('in,jn->ijn', self.r, self.z)   # (6,6,N_ELEM)
+        zr = np.einsum('in,jn->ijn', self.z, self.r)   # (6,6,N_ELEM)
+
+        self.k_sigma = (alpha[np.newaxis, np.newaxis, :] * zz + beta[np.newaxis, np.newaxis, :] * (rz + zr))
 
         for i in range(N_ELEM):
-            self.kt = np.matmul(np.matmul(self.B[:, :, i].T, self.C), self.B[:, :, i])
-            self.k_sigma = (N[i]/self.L[i]) * (np.matmul(self.z[:, i], self.z[:, i].T)) + ((M1[i] + M2[i]) / self.L[i]**2) * (np.matmul(self.r[:, i], self.z[:, i].T) + np.matmul(self.z[:, i], self.r[:, i].T))
-            self.K[3*i:3*i+6, 3*i:3*i+6] += self.kt + self.k_sigma
+            self.K[3*i:3*i+6, 3*i:3*i+6] += self.kt[:, :, i] + self.k_sigma[:, :, i]
 
         # Conditions aux limites
         self.restrictions()
 
     def actualiser_conf(self, u):
         # Actualization L
-        x1 = u[0:-3:3]
+        x1 = u[:-3:3]
         x2 = u[3::3]
         y1 = u[1:-2:3]
         y2 = u[4::3]
         tita = u[2::3]
 
-        # Nouveau longeur apres l'increment dF
+        # Nouveau longeur d'element apres l'increment dF
         self.L = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
         # Actualization Beta apres l'increment dF
@@ -149,14 +173,14 @@ class MEF():
         self.cos = np.cos(self.Beta)
         self.sin = np.sin(self.Beta)
 
-        # Deformation axiale des elements
-        ul = (self.L*self.L - self.L0*self.L0)/(self.L + self.L0)
+        # Deformation axiale des elements ul = (L^2 - L0^2) / (L + L0)
+        ul = (self.L**2 - self.L0**2)/(self.L + self.L0)
 
         return tita, ul
 
     def actualiser_iforces(self, tita, ul):
         # Efforts repere locale
-        # Obtention force axiale
+        # N
         self.ql[0::3] = YOUNG * AREA * ul / self.L0
 
         # Obtention moments
@@ -170,11 +194,11 @@ class MEF():
             self.ql[3*i+2] = 2 * YOUNG * INERTIA * (tita1l + 2*tita2l) / self.L0[i]
 
     def actualiser_global_iforces(self):
-        self.q = np.zeros(3*N_NODES)
+        self.q[:] = 0
         for i in range(N_ELEM):
             self.q[3*i:3*i+6] += np.linalg.matmul(self.B[:, :, i].T, self.ql[3*i:3*i+3])
 
-        self.q[0:3] = 0
+        #self.q[0:3] = 0
 
     def solve(self):
         self.forces_externes()
@@ -206,11 +230,12 @@ class MEF():
             dUk = 0
 
             # Loop correction dU
-            for k in range(maxiter):
+            for k in range(maxiter):               
+                
                 if (np.linalg.norm(R) <= tol):
-                    print("Convergence")
-                    break
-
+                        print("Convergence")
+                        break
+                            
                 # Actualization Ks pour nouveau iteration
                 self.actualiser_ks()
 
@@ -232,45 +257,50 @@ class MEF():
             # Apres NR Un+1 = U_cur
             self.u = u_cur
 
+    def montrer_solution(self):
+        x = self.u[::3] * 100 / 2.54
+        y = self.u[1::3] * 100 / 2.54
+        tita = self.u[2::3]
+        F = self.F
+
+        print(f"x = {x}")
+        print(f"y = {y}")
+        print(f"tita = {tita}")
+        print(f"F = {F}")
+        print(f"q = {self.q}")
+
+        with plt.ioff():
+            fig, ax = plt.subplots()
+
+        ax.set_title("Modèle corotational")
+        ax.set_xlabel("Position X")
+        ax.set_ylabel("Position Y")
+        ax.grid(True)
+        ax.set_aspect('equal', adjustable='datalim')
+
+        ax.plot(x, y, '-o')
+        
+        disconnect_zoom = zoom_factory(ax)
+        pan_handler = panhandler(fig)
+        
+        plt.show()
 
 if __name__ == "__main__":
     solver = MEF()
 
     with cProfile.Profile() as profile:
         solver.solve()
+        """
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            solver.solve()
+            if w:
+                solver.montrer_sol()
+                quit()
+        """
 
     results = pstats.Stats(profile)
     results.sort_stats(pstats.SortKey.TIME)
     results.print_stats()
 
-    x = solver.u[::3] * 100 / 2.54
-    y = solver.u[1::3] * 100 / 2.54
-    tita = solver.u[2::3]
-    F = solver.F
-
-    print(f"x = {x}")
-    print(f"y = {y}")
-    print(f"tita = {tita}")
-    print(f"F = {F}")
-
-    with plt.ioff():
-        fig, ax = plt.subplots()
-
-    ax.set_title("Modèle corotational")
-    ax.set_xlabel("Position X")
-    ax.set_ylabel("Position Y")
-    ax.grid(True)
-    ax.set_aspect('equal', adjustable='datalim')
-
-    ax.plot(x, y, '-o')
-
-    for i in range(N_NODES):
-        Fx = F[3*i]
-        Fy = F[3*i+1]
-
-        ax.quiver(x[i], y[i], Fx, Fy, angles='xy', scale_units='xy', scale=1000000)
-    
-    disconnect_zoom = zoom_factory(ax)
-    pan_handler = panhandler(fig)
-    
-    plt.show()
+    solver.montrer_solution()
