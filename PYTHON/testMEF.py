@@ -29,7 +29,7 @@ class MEF():
         self.ql = np.zeros(3*N_ELEM)                        # ql = [N, M1, M2] sur chaque element
         self.q = np.zeros(3*N_NODES)                        # Efforts internes globales sur chaque node qi = BT * qli
         self.u = np.zeros(3*N_NODES)
-        self.u[::3] = np.linspace(0, L0_T, N_NODES)         # Position initiale sur axis X
+        self.u[::3] = np.linspace(0, L0_T, N_NODES)         # Position initiale sur axis X                 
         self.dU = np.zeros(3*N_NODES)
         self.L0 = np.ones(N_ELEM) * (L0_T / N_ELEM) 
         self.L = np.ones(N_ELEM) * (L0_T / N_ELEM)
@@ -59,6 +59,7 @@ class MEF():
         
         # 3(N_ELEM+1)x3(N_ELEM+1) Variationally consistent tangent stiffness matrix
         self.K = np.zeros((3*(N_NODES), 3*(N_NODES)))
+        self.Kred=self.K[3:, 3:]
 
         # 6x6 Standard transformed global tangent stiffness matrix
         self.kt = np.zeros((6, 6))
@@ -76,34 +77,6 @@ class MEF():
         # Forces punctuelles, fair += pour ne pas suscrire le poid de la poutre
         self.dF[-2] += -8*4448 / NINC            # Example paper force poctuelle
         #self.dF[-1] += -0.2*9465.47 / NINC     # Example paper moment
-
-    def restrictions(self):
-        # Ex pour poutre encastré dans le node 0
-        # Restriction mobilite axis X
-        self.K[0, :] = np.zeros((1, 3*(N_ELEM+1)))
-        self.K[:, 0] = np.zeros((3*(N_ELEM+1)))
-        self.K[0, 0] = 1
-        # Restriction mobilite axis Y
-        self.K[1, :] = np.zeros((1, 3*(N_ELEM+1)))
-        self.K[:, 1] = np.zeros((3*(N_ELEM+1)))
-        self.K[1, 1] = 1
-        # Restriction rotation
-        self.K[2, :] = np.zeros((1, 3*(N_ELEM+1)))
-        self.K[:, 2] = np.zeros((3*(N_ELEM+1)))
-        self.K[2, 2] = 1
-        """
-        self.K[-3, :] = np.zeros((1, 3*(N_ELEM+1)))
-        self.K[:, -3] = np.zeros((3*(N_ELEM+1)))
-        self.K[-3, -3] = 1
-        # Restriction mobilite axis Y
-        self.K[-2, :] = np.zeros((1, 3*(N_ELEM+1)))
-        self.K[:, -2] = np.zeros((3*(N_ELEM+1)))
-        self.K[-2, -2] = 1
-        # Restriction rotation
-        self.K[-1, :] = np.zeros((1, 3*(N_ELEM+1)))
-        self.K[:, -1] = np.zeros((3*(N_ELEM+1)))
-        self.K[-1, -1] = 1
-        """
 
     def actualiser_ks(self):
         sin_L = self.sin/self.L
@@ -152,9 +125,9 @@ class MEF():
 
         for i in range(N_ELEM):
             self.K[3*i:3*i+6, 3*i:3*i+6] += self.kt[:, :, i] + self.k_sigma[:, :, i]
+        
+        self.KRed = self.K[3:, 3:]
 
-        # Conditions aux limites
-        self.restrictions()
 
     def actualiser_conf(self, u):
         # Actualization L
@@ -172,6 +145,9 @@ class MEF():
 
         self.cos = np.cos(self.Beta)
         self.sin = np.sin(self.Beta)
+
+        self.z= np.array([self.sin, -self.cos, np.zeros(N_ELEM), -self.sin, self.cos, np.zeros(N_ELEM)])
+        self.r = np.array([self.cos, self.sin, np.zeros(N_ELEM), -self.cos, -self.sin, np.zeros(N_ELEM)])
 
         # Deformation axiale des elements ul = (L^2 - L0^2) / (L + L0)
         ul = (self.L**2 - self.L0**2)/(self.L + self.L0)
@@ -209,7 +185,7 @@ class MEF():
             self.actualiser_ks()
             
             # dU = Ks^-1 * dF
-            self.dU = np.linalg.solve(self.K, self.dF)
+            self.dU[3:] = np.linalg.solve(self.K[3:, 3:], self.dF[3:])
 
             # Actualization position Un+1 = Un + dU
             self.u += self.dU
@@ -224,10 +200,10 @@ class MEF():
             self.actualiser_global_iforces()
 
             # Correction dU iteratif avec Newton-Raphson
-            R = self.q - self.F
+            R = self.q[3:] - self.F[3:]     # Residual forces (sans les 3 premiers qui sont les conditions de contournement)
 
-            u_cur = self.u
-            dUk = 0
+            u_cur = self.u.copy()
+            dUk = np.zeros(3*N_NODES)
 
             # Loop correction dU
             for k in range(maxiter):               
@@ -240,10 +216,10 @@ class MEF():
                 self.actualiser_ks()
 
                 # Correction dUk+1 = dUk - K^-1 * R
-                dUk -= np.linalg.solve(self.K, R)
+                dUk[3:] -= np.linalg.solve(self.KRed, R)
 
                 # u_cur = Un+1 + dUk+1
-                u_cur = self.u + dUk
+                u_cur[3:] = self.u[3:] + dUk[3:]
 
                 # Nouveau calcul de deformations apres iteration Newton-Raphson
                 tita, ul = self.actualiser_conf(u_cur)
@@ -252,10 +228,10 @@ class MEF():
 
                 self.actualiser_global_iforces()
 
-                R = self.q - self.F
+                R = self.q[3:] - self.F[3:]     # Residual forces (sans les 3 premiers qui sont les conditions de contournement)
             
             # Apres NR Un+1 = U_cur
-            self.u = u_cur
+            self.u = u_cur.copy()
 
     def montrer_solution(self):
         x = self.u[::3] * 100 / 2.54
