@@ -36,5 +36,5 @@ def calculer_GD(th1, th3, seed):
         q1 = [th1, 0]
         q3 = [th3, 0]
         new_seed = seed
-        sol=[0,0,0,0]
+        sol=[0,0]
     return q1, q3, sol, new_seed

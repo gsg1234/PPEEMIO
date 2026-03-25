@@ -14,5 +14,7 @@ def calculer_GI2(x_val, y_val):
     q1 = [th1, d1]
     q3 = [th3, d3]
     
+    # Pour cette modèle on recommend faire les calculs de alpha et theta comme dans calculer_GD et calculer_GI
+    # Il faudrait redefinir les matrices de transformation 
 
     return q1, q3
