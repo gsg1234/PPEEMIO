@@ -7,10 +7,10 @@ def verifierSpTr(x, y):
     funct2 = np.sqrt((x - p.L)**2 + y**2)
     
     if funct1 < p.r_eq_min or funct1 > p.r_eq_max:
-        warnings.warn("Some points are not on the workspace")
+        warnings.warn("Certains points ne se trouvent pas dans l'espace de travail.")
         return 0
     elif funct2 < p.r_eq_min or funct2 > p.r_eq_max:
-        warnings.warn("Some points are not on the workspace")
+        warnings.warn("Certains points ne se trouvent pas dans l'espace de travail.")
         return 0
     else:
         return 1

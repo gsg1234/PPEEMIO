@@ -36,8 +36,9 @@ def verifierSpTr_Trayectoire(x, y, plot):
     if plot:
         plt.figure(figsize=(8, 8))
         plt.plot(x_tray_lim, y_tray_lim, 'k--', linewidth=1, label='Limites de l\'espace de travail')
-        plt.plot(xiws, yiws, 'go', label='Points dans l\'espace de travail')
-        if xows:  # Only plot if there are points outside the workspace
+        if xiws:  # Plot seulement s'il y a des points hors de l'espace de travail
+            plt.plot(xiws, yiws, 'go', label='Points dans l\'espace de travail')
+        if xows:  # Plot seulement s'il y a des points hors de l'espace de travail
             plt.plot(xows, yows, 'ro', label='Points hors de l\'espace de travail')
         plt.title('Vérification de la trajectoire')
         plt.xlabel('x')
