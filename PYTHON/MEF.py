@@ -3,8 +3,10 @@ from mpl_interactions import ioff, panhandler, zoom_factory
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 
+np.set_printoptions(suppress=True,linewidth=None)
+
 class MEF():
-    def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol):
+    def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol, mode='fs'):
         # Parametres de la poutre
         self.large = large
         self.haut = haut
@@ -12,9 +14,15 @@ class MEF():
         self.YOUNG = YOUNG
         self.POID = 1220*large*haut*L0t
         self.AREA = large*haut
-        self.INERTIA = (large*haut**3)/12
+        self.INERTIA = (large*haut**3.0)/12.0
         self.radius = np.sqrt(self.INERTIA / self.AREA)
-        self.Mc = 2*np.pi*YOUNG*self.INERTIA/L0t
+        self.Mc = 2.0*np.pi*YOUNG*self.INERTIA/L0t
+
+        # Montrer evolution des increments ou solution finale du MEF
+        if mode != 'evol':
+            self.mode = 'fs'
+        else:
+            self.mode = mode
 
         # Parametres du MEF
         self.N_ELEM = N_ELEM
@@ -30,7 +38,7 @@ class MEF():
         self.q = np.zeros(3*self.N_NODES)                        # Efforts internes globales sur chaque node qi = BT * qli
         self.u = np.zeros(3*self.N_NODES)
         self.u[::3] = np.linspace(0, self.L0t, self.N_NODES)         # Position initiale sur axis X
-        self.evol_u = np.zeros((NINC, 3*self.N_NODES))            
+        self.evol_u = np.zeros((NINC, 3*self.N_NODES))  
         self.dU = np.zeros(3*self.N_NODES)
         self.dUk = np.zeros(3*self.N_NODES)
         self.L0 = np.ones(N_ELEM) * (self.L0t / N_ELEM)         # Longueur initiale de chaque element
@@ -72,20 +80,25 @@ class MEF():
         self.k_sigma = np.zeros((6, 6, N_ELEM))
 
     def forces_externes(self):
-        # Poid de la poutre
+        # POID DISTRIBUÉ DE LA POUTRE
         # Node sur encastrement
-        #self.dF[0:3] = np.array([0, -POID*self.L0[0]/(L0_T*2), -(POID*self.L0[0]**2)/(L0_T*12)]) / NINC
+        self.dF[0:3] = np.array([0, -self.POID*self.L0[0]/(self.L0t*2), 0]) / self.NINC
 
         # Node internes
-        #for i in range(1, N_NODES-1):
-        #    self.dF[3*i:3*i+3] = np.array([0, -POID*self.L0[0]/L0_T, 0]) / NINC
+        for i in range(1, self.N_NODES-1):
+            self.dF[3*i:3*i+3] = np.array([0, -self.POID*self.L0[0]/self.L0t, 0]) / self.NINC
 
         # Derniere node
-        #self.dF[-3:] = np.array([0, -POID*self.L0[0]/(L0_T*2), (POID*self.L0[0]**2)/(L0_T*12)]) / NINC
+        self.dF[-3:] = np.array([0, -self.POID*self.L0[0]/(self.L0t*2), 0]) / self.NINC
 
-        # Forces punctuelles, fair += pour ne pas suscrire le poid de la poutre
-        #self.dF[-2] += -0.1 / NINC            # Example paper force poctuelle
-        self.dF[-1] += -0.5*self.Mc / self.NINC     # Example paper moment
+        # EFFORTS PONCTUELLES, fair += pour ne pas suscrire le poid de la poutre
+        # Panier
+        self.dF[-2] += -0.015 / self.NINC            # Force pour poid
+        self.dF[-1] += -0.015*0.0335 / self.NINC     # Traslation du poid de panier de CM au dernier noeud
+
+        # Poids de 4g
+        self.dF[-2] += -0*0.0035 / self.NINC          # Force pour poid
+        self.dF[-1] += -0*0.0035*0.062 / self.NINC    # Traslation de la force de CM au dernier noeud
 
     def actualiser_ks(self):
         sin_L = self.sin/self.L
@@ -226,7 +239,6 @@ class MEF():
             convegence = 0
             for k in range(self.maxiter):               
                 if (np.linalg.norm(R) <= self.tol):
-                        print(f"Inc {n} - It {k}: Convergence")
                         convegence = 1
                         break
                             
@@ -249,35 +261,42 @@ class MEF():
             
             if not convegence:
                 print(f"Inc {n} - It {k}: Pas de convergence")
-                quit()
+                print(f"|R| = {np.linalg.norm(R)}")
+                return -1
 
             # Apres NR Un+1 = U_cur
             self.u = u_cur.copy()
-            self.evol_u[n, :] = self.u
+            self.evol_u[n, :] = u_cur.copy()
 
     def montrer_solution(self):
-        x = self.u[::3] * 100 / 2.54
-        y = self.u[1::3] * 100 / 2.54
+        print("Configuration finale")
+        x = self.u[::3]*1000
+        y = self.u[1::3]*1000
         tita = self.u[2::3]
 
         print(f"x = {x}")
         print(f"y = {y}")
         print(f"tita = {tita}")
+        print(f"L = {self.L}")
 
         with plt.ioff():
             fig, ax = plt.subplots()
 
         ax.set_title("Modèle corotational")
-        ax.set_xlabel("Position X [in]")
-        ax.set_ylabel("Position Y [in]")
+        ax.set_xlabel("Position X [mm]")
+        ax.set_ylabel("Position Y [mm]")
         ax.grid(True)
-        ax.set_aspect('equal', adjustable='datalim')
+        #ax.set_aspect('equal', adjustable='datalim')
 
-        cmap = colormaps['brg']
+        if self.mode == 'evol':
+            cmap = colormaps['brg']
 
-        for i in range(self.NINC):
-            color = cmap(i / (self.NINC - 1))
-            ax.plot(self.evol_u[i, ::3], self.evol_u[i, 1::3], '-o', label='Inc'+str(i), color=color)
+            for i in range(self.NINC):
+                color = cmap(i / (self.NINC - 1))
+                ax.plot(self.evol_u[i, ::3]*1000, self.evol_u[i, 1::3]*1000, '-o', label='Inc '+str(i), color=color)
+        
+        else:
+            ax.plot(x, y, '-o', label='Config finale')
         
         disconnect_zoom = zoom_factory(ax)
         pan_handler = panhandler(fig)
@@ -286,6 +305,6 @@ class MEF():
         plt.show()
 
 if __name__ == "__main__":
-    solver = MEF(large=0.01, haut=0.005, L0t=0.2, YOUNG=10e6, N_ELEM=10, NINC=75, maxiter=50, tol=0.001)
+    solver = MEF(large=0.01, haut=0.005, L0t=0.122, YOUNG=5.64e6, N_ELEM=20, NINC=75, maxiter=50, tol=0.001, mode='fs')
     solver.solve()
     solver.montrer_solution()

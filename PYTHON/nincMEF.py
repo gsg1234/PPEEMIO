@@ -6,19 +6,16 @@ import matplotlib.pyplot as plt
 if __name__ == "__main__":
     ninc = []
     t = []
-    NINC = 75
 
-    for i in range(25):
-        solver = MEF(large=0.01, haut=0.005, L0t=0.2, YOUNG=10e6, N_ELEM=10, NINC=NINC, maxiter=50, tol=0.001)
+    for n in range(75, 305, 10):
+        solver = MEF(large=0.01, haut=0.005, L0t=0.2, YOUNG=10e6, N_ELEM=10, NINC=n, maxiter=50, tol=0.001)
         with cProfile.Profile() as profile:
             solver.solve()        
 
         results = pstats.Stats(profile)
         pData = results.get_stats_profile()
         t.append(pData.total_tt)
-        ninc.append(NINC)
-
-        NINC += 10
+        ninc.append(n)
     
     fig, ax = plt.subplots()
 
