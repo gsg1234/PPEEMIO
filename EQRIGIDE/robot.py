@@ -1,6 +1,6 @@
 import sympy as sp
 import numpy as np
-import parametres as p
+import EQRIGIDE.CodesFinales.parametres as p
 
 #Matrices de rotation
 def transl(x, y, z):
@@ -26,7 +26,6 @@ T11 = trotz(th1s) * transl(p.r, 0, 0) * trotx(sp.pi/2)
 T12 = transl(0, 0, d1_sym)
 T1T = trotx(-sp.pi/2) * trotz(-3*sp.pi/4) * transl(p.l_len, 0, 0) * trotz(-sp.pi/2)
 T_R1 = T1B * T11 * T12 * T1T
-print ("T_R1 = ", T_R1)
 
 T3B = troty(sp.pi) * transl(p.L, 0, 0)
 T31 = trotz(th3s) * transl(p.r, 0, 0) * trotx(sp.pi/2)

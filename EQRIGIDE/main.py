@@ -1,9 +1,10 @@
 import numpy as np
-import parametres as p
+import EQRIGIDE.CodesFinales.parametres as p
 from calculer_GD import calculer_GD
+from EQRIGIDE.CodesFinales.calculer_GD2 import calculer_GD2
 from calculer_GI import calculer_GI
-from calculer_GI2 import calculer_GI2
-from animate import animate
+from EQRIGIDE.CodesFinales.calculer_GI2 import calculer_GI2
+from EQRIGIDE.CodesFinales.animate import animate
 import matplotlib.pyplot as plt
 from verifierSpTr_Trayectoire import verifierSpTr_Trayectoire
 
@@ -46,6 +47,36 @@ if __name__ == '__main__':
     Q1_total = np.array(Q1_total)
     Q3_total = np.array(Q3_total)
     sol = np.array(sol)
+    print("Iniciando Animación GD...")
+    animate(Q1_total, Q3_total, 1)
+
+    print('\nCalcul Étape 1B : th1 en mouvement...')
+    Q1_total, Q3_total, sol = [], [], []
+    for i in range(p_cuarto):
+        q1, q3  = calculer_GD2(tA_tray[i], th3)
+        Q1_total.append(q1); Q3_total.append(q3) 
+    for i in range(p_cuarto):
+        q1, q3 = calculer_GD2(tA_tray[p_cuarto-1-i], th3)
+        Q1_total.append(q1); Q3_total.append(q3)
+        
+    print('Calcul Étape 2B : th3 en mouvement...')
+    for i in range(p_cuarto):
+        q1, q3 = calculer_GD2(th1, tB_tray[i])
+        Q1_total.append(q1); Q3_total.append(q3)
+    for i in range(p_cuarto):
+        q1, q3 = calculer_GD2(th1, tB_tray[p_cuarto-1-i])
+        Q1_total.append(q1); Q3_total.append(q3)
+        
+    print('Calcul Étape 3B : th1 et th3 en mouvement...')
+    for i in range(p_cuarto):
+        q1, q3 = calculer_GD2(tA_tray[i], tB_tray[i])
+        Q1_total.append(q1); Q3_total.append(q3)
+    for i in range(p_cuarto):
+        q1, q3 = calculer_GD2(tA_tray[p_cuarto-1-i], tB_tray[p_cuarto-1-i])
+        Q1_total.append(q1); Q3_total.append(q3)
+
+    Q1_total = np.array(Q1_total)
+    Q3_total = np.array(Q3_total)
     print("Iniciando Animación GD...")
     animate(Q1_total, Q3_total, 1)
     

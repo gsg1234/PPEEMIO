@@ -2,8 +2,8 @@ import numpy as np
 import warnings
 from scipy.optimize import least_squares
 from robot import f_solverinv,trotx, transl, troty, trotz
-from verifierSpTr import verifierSpTr
-import parametres as p
+from EQRIGIDE.CodesFinales.verifierSpTr import verifierSpTr
+import EQRIGIDE.CodesFinales.parametres as p
 
 def calculer_GI(x_val, y_val, seed):
     lb = [-np.pi/2, -np.pi/2, 100, 100]

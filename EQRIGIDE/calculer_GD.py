@@ -2,13 +2,13 @@ import warnings
 import numpy as np
 from scipy.optimize import least_squares
 from robot import f_solver,trotx, transl, troty, trotz
-from verifierSpTr import verifierSpTr
-import parametres as p
+from EQRIGIDE.CodesFinales.verifierSpTr import verifierSpTr
+import EQRIGIDE.CodesFinales.parametres as p
 
 def calculer_GD(th1, th3, seed):
     lb = [-500, -500, 100, 100]
     ub = [ 500,    0, 200, 200]
-    
+
     res = least_squares(f_solver, seed, args=(th1, th3), bounds=(lb, ub), method='trf')
     
     if res.success and res.status > 0:

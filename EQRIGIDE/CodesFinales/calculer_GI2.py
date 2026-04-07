@@ -1,7 +1,12 @@
 import numpy as np
 import parametres as p
+from verifierSpTr import verifierSpTr
+from calc_Angles import calculer_Angles
 
 def calculer_GI2(x_val, y_val):
+    if(not verifierSpTr(x_val, y_val)):
+        raise ValueError(f"Le point calculé ({x_val:.4f}, {y_val:.4f}) n'est pas dans l'espace de travail.")
+    
     xdif1=x_val-p.L
     xdif3=x_val+p.L
     ydif=y_val
@@ -14,7 +19,8 @@ def calculer_GI2(x_val, y_val):
     q1 = [th1, d1]
     q3 = [th3, d3]
     
-    # Pour cette modèle on recommend faire les calculs de alpha et theta comme dans calculer_GD et calculer_GI
-    # Il faudrait redefinir les matrices de transformation 
+    alpha, th=calculer_Angles(q1, q3)
+    res=[x_val, y_val, alpha, th]
+   
 
-    return q1, q3
+    return q1, q3, res

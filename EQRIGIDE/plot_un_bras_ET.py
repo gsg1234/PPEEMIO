@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import parametres as p
+import EQRIGIDE.CodesFinales.parametres as p
 
 Q1 = np.array([-np.pi/4, 163.137084])
 plt.ion()
