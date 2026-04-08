@@ -6,10 +6,10 @@ from verifierSpTr import verifierSpTr
 def verifierSpTr_Trayectoire(x, y, plot):
     
     #SPACE DE TRAVAIL
-    x1_tray = np.linspace(0, 82.0711, 100)
-    x2_tray = np.linspace(82.0711, 0, 100)
-    x3_tray = np.linspace(0, -82.0711, 100)
-    x4_tray = np.linspace(-82.0711, 0, 100)
+    x1_tray = np.linspace(p.S1[0], p.S2[0], 100)
+    x2_tray = np.linspace(p.S2[0], p.S3[0], 100)
+    x3_tray = np.linspace(p.S3[0], p.S4[0], 100)
+    x4_tray = np.linspace(p.S4[0], p.S1[0], 100)
 
     y1_tray = -np.sqrt(p.r_eq_min**2 - (x1_tray - p.L)**2)
     y2_tray = -np.sqrt(p.r_eq_max**2 - (x2_tray + p.L)**2)

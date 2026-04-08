@@ -1,13 +1,11 @@
 import numpy as np
-import parametres as p
 from calculer_GI2 import calculer_GI2
 from animate import animate
-import matplotlib.pyplot as plt
 from graph_temp import graph_temp
 
 p_cuarto = 50
 # --- GI CARRE ---
-print("\nCalculando GI Cuadrado...")
+print("\nCalcul de la trajectoire carrée...")
 x_tray = np.linspace(-20, 20, p_cuarto)
 y_tray = np.linspace(-100, -140, p_cuarto)
 Q1_GI, Q3_GI, sol = [], [], []
