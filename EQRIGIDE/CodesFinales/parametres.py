@@ -11,10 +11,10 @@ r_eq_min = np.sqrt((-r + l_len*np.cos(np.pi/4))**2 + (-dmin - l_len*np.sin(np.pi
 
 x2=float((r_eq_max**2-r_eq_min**2)/(4*L))
 
-S1=[0,float(np.sqrt(r_eq_min**2 - L**2))]
-S3=[0,float(np.sqrt(r_eq_max**2 - L**2))]
-S2=[x2,float(np.sqrt(r_eq_max**2 - (x2-L)**2))]
-S4=[-x2,float(np.sqrt(r_eq_min**2 - (x2-L)**2))]
+S1=[0,-float(np.sqrt(r_eq_min**2 - L**2))]
+S3=[0,-float(np.sqrt(r_eq_max**2 - L**2))]
+S2=[x2,-float(np.sqrt(r_eq_min**2 - (x2-L)**2))]
+S4=[-x2,-float(np.sqrt(r_eq_min**2 - (-x2+L)**2))]
 
 #Decommenter les lignes suivantes pour afficher les valeurs de R_eq_max et R_eq_min et les points S1, S2, S3, S4
 

@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import EQRIGIDE.CodesFinales.parametres as p
+import CodesFinales.parametres as p
 
-Q1 = np.array([-np.pi/4, 163.137084])
+Q1 = np.array([-np.pi/4, 200])
 plt.ion()
 fig, ax = plt.subplots(figsize=(8, 8))
 fig.canvas.manager.set_window_title('Robot EMIO')
@@ -15,8 +15,8 @@ ax.grid(True)
 theta_c = np.linspace(0, 2*np.pi, 100)
 ax.plot(p.L + p.r*np.cos(theta_c), p.r*np.sin(theta_c), 'k:', linewidth=0.5)
 
-ax.plot(p.L+p.r_eq_max*np.cos(theta_c), p.r_eq_max*np.sin(theta_c), color=[1, 0, 1], linewidth=0.5, label='R_min')
-ax.plot(p.L+p.r_eq_min*np.cos(theta_c), p.r_eq_min*np.sin(theta_c), color=[0, 1, 0], linewidth=0.5, label='R_max')
+ax.plot(p.L+p.r_eq_max*np.cos(theta_c), p.r_eq_max*np.sin(theta_c), color="#858585", linewidth=0.5, label='R_min')
+ax.plot(p.L+p.r_eq_min*np.cos(theta_c), p.r_eq_min*np.sin(theta_c), color="#858585", linewidth=0.5, label='R_max')
 
 h_r1_prox, = ax.plot([], [], 'k', linewidth=4)
 h_r1_cyl,  = ax.plot([], [], 'k', linewidth=8)

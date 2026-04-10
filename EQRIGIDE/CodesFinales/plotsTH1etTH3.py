@@ -1,10 +1,16 @@
 import numpy as np
-import EQRIGIDE.CodesFinales.parametres as p
+import parametres as p
 import matplotlib.pyplot as plt
-from EQRIGIDE.CodesFinales.calculer_GI2 import calculer_GI2
+from calculer_GI2 import calculer_GI2
 
 
 #SPACE DE TRAVAIL
+ETx=np.array([p.S1[0], p.S2[0], p.S3[0], p.S4[0]])
+ETy=np.array([p.S1[1], p.S2[1], p.S3[1], p.S4[1]])
+ETQ1, ETQ3, res = calculer_GI2(ETx, ETy)
+print(f"ETQ1: {ETQ1}")
+print(f"ETQ3: {ETQ3}")
+
 x_grid = np.linspace(-150, 150, 250)
 y_grid = np.linspace(-300, 0, 250)
 X, Y = np.meshgrid(x_grid, y_grid)
@@ -23,7 +29,7 @@ x_interieur = X[masque]
 y_interieur = Y[masque]
 
 # Extraction des angles th1 et th3 (qui correspondent à l'index 0 de q1 et q3)
-q1_res, q3_res = calculer_GI2(x_interieur, y_interieur)
+q1_res, q3_res, res = calculer_GI2(x_interieur, y_interieur)
 
 th1_vals = q1_res[0]
 th3_vals = q3_res[0]
