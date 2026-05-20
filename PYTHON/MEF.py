@@ -21,7 +21,7 @@ class MEF():
         self.beam1 = Beam(large, haut, L0t, YOUNG, N_ELEM, NINC)
         self.beam2 = Beam(large, haut, L0t, YOUNG, N_ELEM, NINC)
 
-    def solve_increment_charge(self, ddl_bloque):
+    def solve_increment_charge(self, ddl_bloque, dF):
         # Obtension des ddl dans la poutre
         ddl = np.delete(np.arange(3*self.beam1.N_NODES), ddl_bloque, axis=0)
 
@@ -151,10 +151,31 @@ class MEF():
             self.beam1.u = u_cur.copy()
             self.beam1.evol_u[n, :] = self.beam1.u.copy()
 
+    def condition_initiale(self, pos_encastrement, pos_finale):
+        self.beam1.configuration_neutre(gamma=np.deg2rad(90), x0=pos_encastrement[0], y0=pos_encastrement[1])
+        
+        noeuds_contraintes = {
+            "1": 0,
+            "2": 20
+        }
 
-    def solve(self, type, ddl_bloques, deltaU=np.zeros(1), noeud=0):
+        ddl_bloque = {
+            "1": {"x": True, "y": True, "tita": True},
+            "2": {"x": True, "y": False,  "tita": True}
+        }
+        # Liste de ddl contraintes par conditions de countour
+        ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+
+        # Noued qui bougera de forme arbitraire
+        noeud_bouge = 20
+        deltaU = pos_finale - self.beam1.u[3*noeud_bouge:3*noeud_bouge+3]
+
+        self.solve("deplacement", ddl_bloque, deltaU, noeud_bouge)
+        self.solve("force", [0, 1, 2, -3, -2, -1])
+
+    def solve(self, type, ddl_bloques, deltaU=np.zeros(1), noeud=0, dF = 0):
         if type == "force":
-            self.solve_increment_charge(ddl_bloques)
+            self.solve_increment_charge(ddl_bloques, dF)
         elif type == "deplacement":
             self.solve_increment_deplacement(deltaU, noeud, ddl_bloques)
 
@@ -175,6 +196,7 @@ class MEF():
         print(f"y = {y1}")
         print(f"tita = {tita1}")
         print(f"L = {self.beam1.L}")
+        print(f"q = {self.beam1.q}")
         """
         print(f"x = {x2}")
         print(f"y = {y2}")
@@ -239,11 +261,11 @@ def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_
                 gdl_global = nodo * gdl_por_nodo + mapa_gdl[direccion]
                 gdl_bloqueados.append(gdl_global)
 
-    return np.array(gdl_bloqueados)
+    return gdl_bloqueados
 
 if __name__ == "__main__":
-    solver = MEF(large=0.01, haut=0.005, L0t=0.204, YOUNG=5.64e6, N_ELEM=20, NINC=150, maxiter=50, tol=0.001, mode='fs')
-    solver.beam1.configuration_initiale(gamma=np.deg2rad(90), x0=-0.1, y0=0)
+    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=50, tol=0.01, mode='fs')
+    solver.beam1.configuration_neutre(gamma=np.deg2rad(90), x0=-0.1, y0=0)
     noeuds_contraintes = {
         "1": 0,
         "2": 20
@@ -258,9 +280,10 @@ if __name__ == "__main__":
 
     # Noued qui bougera de forme arbitraire
     noeud_bouge = 20
-    pos_finale = np.array([0, solver.beam1.u[-2], np.pi/2])
+    pos_finale = np.array([0.1, 0, np.pi])
     deltaU = pos_finale - solver.beam1.u[3*noeud_bouge:3*noeud_bouge+3]
+    print(f"deltaU : {deltaU}")
 
     solver.solve("deplacement", ddl_bloque, deltaU, noeud_bouge)
-    #solver.solve("force", [0, 1, 2])
+    solver.solve("force", [0, 1, 2, -3, -2, -1])
     solver.montrer_solution()

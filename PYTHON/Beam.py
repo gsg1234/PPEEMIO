@@ -29,6 +29,8 @@ class Beam():
         self.dUk = np.zeros(3*self.N_NODES)
         self.L0 = np.ones(N_ELEM) * (self.L0t / N_ELEM)         # Longueur initiale de chaque element
         self.L = np.ones(N_ELEM) * (self.L0t / N_ELEM)          # Longueur apres deformation de chaque element
+        self.z = np.zeros((6, N_ELEM))
+        self.r = np.zeros((6, N_ELEM))
         self.zz = np.zeros((6, 6, N_ELEM))
         self.zr = np.zeros((6, 6, N_ELEM))
         self.rz = np.zeros((6, 6, N_ELEM))
@@ -73,20 +75,7 @@ class Beam():
         #self.dF[-2] += -1*0.0035 / self.NINC          # Force pour poid
         #self.dF[-1] += -0*0.0035*0.062 / self.NINC    # Traslation de la force de CM au dernier noeud
 
-    def configuration_neutre(self):
-        # Configuration du poutre neutre (sans efforts internes) pour encastrement verticale
-        self.u[::3] = 0
-        self.u[1::3] = np.linspace(0, -self.L0t, self.N_NODES)
-        self.u[2::3] = 0
-
-        # Construction beta0 en function de la configuration initiale
-        x1 = self.u[0:-3:3]
-        x2 = self.u[3::3]
-        y1 = self.u[1:-2:3]
-        y2 = self.u[4::3]
-        self.Beta_0 = np.atan2(y2 - y1, x2 - x1)
-
-    def configuration_initiale(self, gamma, x0, y0):
+    def configuration_neutre(self, gamma, x0, y0):
         """
         # ELEMENTS [0:N_ELEM/4]
         #VIGA EN |__|
