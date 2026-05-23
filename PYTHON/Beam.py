@@ -117,7 +117,7 @@ class Beam():
         x2 = self.u[3::3]
         y1 = self.u[1:-2:3]
         y2 = self.u[4::3]
-        self.Beta_0 = np.atan2(y2 - y1, x2 - x1)
+        self.Beta_0 = np.arctan2(y2 - y1, x2 - x1)
         self.L0 = np.sqrt((x2-x1)**2 + (y2-y1)**2)
 
         self.cos = np.cos(self.Beta_0)
@@ -186,7 +186,7 @@ class Beam():
         self.L = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
         # Actualization Beta apres l'increment dF
-        self.Beta = np.atan2(y2 - y1, x2 - x1)
+        self.Beta = np.arctan2(y2 - y1, x2 - x1)
 
         self.cos = np.cos(self.Beta)
         self.sin = np.sin(self.Beta)
@@ -228,4 +228,4 @@ class Beam():
             self.ql[3*i+2] = 2 * self.YOUNG * self.INERTIA * (tita1l[i] + 2*tita2l[i]) / self.L0[i]
 
             # Forces repere globale
-            self.q[3*i:3*i+6] += np.linalg.matmul(self.B[:, :, i].T, self.ql[3*i:3*i+3])
+            self.q[3*i:3*i+6] += np.matmul(self.B[:, :, i].T, self.ql[3*i:3*i+3])
