@@ -1,36 +1,74 @@
 import numpy as np
-from mpl_interactions import ioff, panhandler, zoom_factory
 import matplotlib.pyplot as plt
-from matplotlib import colormaps
 
 from Beam import Beam
 
 np.set_printoptions(suppress=True,linewidth=None)
 
 class MEF():
-    def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol, mode='fs'):
+    def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol):
         self.NINC = NINC
         self.maxiter = maxiter
         self.tol = tol
-        # Montrer evolution des increments ou solution finale du MEF
-        if mode != 'evol':
-            self.mode = 'fs'
-        else:
-            self.mode = mode
-
         self.beam1 = Beam(large, haut, L0t, YOUNG, N_ELEM, NINC)
+        self._quiver = None
+        self._colorbar = None
 
-        # Plot en vivo
         plt.ion()
         self.fig, self.ax = plt.subplots()
+        self._setup_axes()
+        self.beam_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
+        plt.show(block=False)
+
+    def _setup_axes(self):
         self.ax.set_title("Modèle corotational")
         self.ax.set_xlabel("Position X [mm]")
         self.ax.set_ylabel("Position Y [mm]")
         self.ax.grid(True)
-        self._colorbar = None
         self.ax.set_aspect('equal', adjustable='datalim')
-        self.live_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
-        plt.show(block=False)
+
+    def _draw(self):
+        if not plt.fignum_exists(self.fig.number):
+            self._quiver = None
+            self._colorbar = None
+            self.fig, self.ax = plt.subplots()
+            self._setup_axes()
+            self.beam_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
+
+        x = self.beam1.u[::3] * 1000
+        y = self.beam1.u[1::3] * 1000
+        self.beam_line.set_data(x, y)
+
+        Fx = self.beam1.F[::3]
+        Fy = self.beam1.F[1::3]
+        mag = np.sqrt(Fx**2 + Fy**2)
+        nonzero = mag > 0
+        if np.any(nonzero):
+            scale = 0.1 * max(x.max() - x.min(), y.max() - y.min(), 1e-6)
+            safe_mag = np.where(nonzero, mag, 1)
+            U = np.where(nonzero, Fx / safe_mag * scale, 0)
+            V = np.where(nonzero, Fy / safe_mag * scale, 0)
+            if self._quiver is None:
+                self._quiver = self.ax.quiver(x, y, U, V, mag,
+                                              cmap='brg', angles='xy',
+                                              scale_units='xy', scale=1, width=0.006,
+                                              clim=(-1, 1))
+                self._colorbar = self.fig.colorbar(self._quiver, ax=self.ax, label='|F| [N]')
+            else:
+                self._quiver.set_offsets(np.column_stack([x, y]))
+                self._quiver.set_UVC(U, V, mag)
+                self._colorbar.update_normal(self._quiver)
+        else:
+            if self._quiver is not None:
+                self._quiver.remove()
+                self._quiver = None
+            if self._colorbar is not None:
+                self._colorbar.ax.remove()
+                self._colorbar = None
+
+        self.ax.relim()
+        self.ax.autoscale_view()
+        plt.pause(0.001)
 
     def solve_increment_charge(self, ddl_bloque, dF, live_plot):
         # Obtension des ddl dans la poutre
@@ -40,6 +78,7 @@ class MEF():
         # Loop dF
         for n in range(self.NINC):
             self.beam1.F += dF
+            print(self.beam1.F)
 
             self.beam1.actualiser_ks()
 
@@ -95,7 +134,7 @@ class MEF():
             self.beam1.u = u_cur1.copy()
             self.beam1.evol_u[n, :] = u_cur1.copy()
             if live_plot:
-                self._update_live_plot(n)
+                self._draw()
 
     def solve_increment_deplacement(self, deltaU, noeud, ddl_bloque, live_plot):
         du = deltaU / self.NINC
@@ -144,7 +183,7 @@ class MEF():
             self.beam1.u = u_cur.copy()
             self.beam1.evol_u[n, :] = self.beam1.u.copy()
             if live_plot:
-                self._update_live_plot(n)
+                self._draw()
 
     def condition_initiale(self, pos_encastrement, pos_finale, live_plot=False):
         self.beam1.configuration_neutre(gamma=np.deg2rad(90), x0=pos_encastrement[0], y0=pos_encastrement[1])
@@ -174,98 +213,16 @@ class MEF():
             self.solve_increment_charge(ddl_bloques, dF, live_plot)
         elif type == "deplacement":
             self.solve_increment_deplacement(deltaU, noeud, ddl_bloques, live_plot)
-        self.montrer_solution()
+        self._draw()
 
     def montrer_solution(self):
         print(f"\n\nConfiguration finale:\n")
-        x1 = self.beam1.u[::3]*1000
-        y1 = self.beam1.u[1::3]*1000
-        tita1 = self.beam1.u[2::3]
-        Fx = self.beam1.F[::3]
-        Fy = self.beam1.F[1::3]
-
-        print(f"x = {x1}")
-        print(f"y = {y1}")
-        print(f"tita = {tita1}")
+        print(f"x = {self.beam1.u[::3]*1000}")
+        print(f"y = {self.beam1.u[1::3]*1000}")
+        print(f"tita = {self.beam1.u[2::3]}")
         print(f"L = {self.beam1.L}")
         print(f"q = {self.beam1.q}")
-
-            # --- RECREAR la figura si fue cerrada ---
-        if not plt.fignum_exists(self.fig.number):
-            self._colorbar = None
-            self.fig, self.ax = plt.subplots()
-            self.live_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
-
-        # --- LIMPIAR el axes y la colorbar anterior ---
-        if self._colorbar is not None:
-            self._colorbar.remove()
-            self._colorbar = None
-        self.ax.cla()
-
-        self.ax.set_title("Modèle corotational")
-        self.ax.set_xlabel("Position X [mm]")
-        self.ax.set_ylabel("Position Y [mm]")
-        self.ax.grid(True)
-        self.ax.set_aspect('equal', adjustable='datalim')
-
-        if self.mode == 'evol':
-            cmap = colormaps['rainbow']
-
-            for i in range(self.NINC):
-                color = cmap(i / (self.NINC - 1))
-                self.ax.plot(self.beam1.evol_u[i, ::3]*1000, self.beam1.evol_u[i, 1::3]*1000, '-o', color=color)
-        
-        else:
-            self.ax.plot(x1, y1, '-o', label='Config finale')
-
-            # Fuerzas en los nodos
-            mag = np.sqrt(Fx**2 + Fy**2)
-            nonzero = mag > 0  # evitar division por cero
-            if np.any(nonzero):
-                # Escala visual fija, color según magnitud
-                scale = 0.1 * max(x1.max() - x1.min(), y1.max() - y1.min())  # 10% del rango del gráfico
-                safe_mag = np.where(nonzero, mag, 1)
-                U = np.where(nonzero, Fx / safe_mag * scale, 0)
-                V = np.where(nonzero, Fy / safe_mag * scale, 0)
-                q = self.ax.quiver(x1, y1, U, V, mag,
-                            cmap='brg',
-                            angles='xy', scale_units='xy', scale=1,
-                            width=0.003)
-                
-                plt.colorbar(q, ax=self.ax, label='|F| [N]')
-
-        """
-        idx = np.argmax(np.abs(y1))
-        px, py = x1[idx], y1[idx]
-
-        self.ax.annotate(
-            f"max Y: ({px:.4f}, {py:.4f}) mm",
-            xy=(px, py),
-            xytext=(-40, -120),
-            fontsize=9,
-            color='darkred',
-            arrowprops=dict(
-                arrowstyle="->",
-                color='darkred',
-                lw=1.5
-            ),
-            bbox=dict(boxstyle="round,pad=0.3", fc="lightyellow", ec="darkred", alpha=0.8)
-        )
-        
-        disconnect_zoom = zoom_factory(self.ax)
-        pan_handler = panhandler(self.fig)
-
-        self.ax.legend()
-        plt.pause(0.001)
-        """
-        
-    def _update_live_plot(self, n):
-        x = self.beam1.u[::3] * 1000
-        y = self.beam1.u[1::3] * 1000
-        self.live_line.set_data(x, y)
-        self.ax.relim()
-        self.ax.autoscale_view()
-        plt.pause(0.001)
+        self._draw()
 
 def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_nodo=3):
     mapa_gdl = {
@@ -287,11 +244,11 @@ def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_
     return gdl_bloqueados
 
 if __name__ == "__main__":
-    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=50, tol=0.01, mode='fs')
+    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=50, tol=0.01)
     solver.condition_initiale([-0.1, 0], np.array([0.1, 0, np.pi]), live_plot=False)
 
     dF = np.zeros(3*solver.beam1.N_NODES)
-    dF[3*10+1] = -0.001
+    dF[3*10+1] = -0.5 / solver.NINC
     
     solver.solve("force", [0, 1, 2, -3, -2, -1], dF=dF, live_plot=True)
     
