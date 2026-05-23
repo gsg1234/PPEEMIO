@@ -6,11 +6,12 @@ from Beam import Beam
 np.set_printoptions(suppress=True,linewidth=None)
 
 class MEF():
-    def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol):
+    def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol, draw_every=1):
         self.NINC = NINC
         self.maxiter = maxiter
         self.tol = tol
-        self.beam1 = Beam(large, haut, L0t, YOUNG, N_ELEM, NINC)
+        self.beam = Beam(large, haut, L0t, YOUNG, N_ELEM, NINC)
+        self.draw_every = draw_every
         self._quiver = None
         self._colorbar = None
 
@@ -35,12 +36,12 @@ class MEF():
             self._setup_axes()
             self.beam_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
 
-        x = self.beam1.u[::3] * 1000
-        y = self.beam1.u[1::3] * 1000
+        x = self.beam.u[::3] * 1000
+        y = self.beam.u[1::3] * 1000
         self.beam_line.set_data(x, y)
 
-        Fx = self.beam1.F[::3]
-        Fy = self.beam1.F[1::3]
+        Fx = self.beam.F[::3]
+        Fy = self.beam.F[1::3]
         mag = np.sqrt(Fx**2 + Fy**2)
         nonzero = mag > 0
         if np.any(nonzero):
@@ -57,7 +58,6 @@ class MEF():
             else:
                 self._quiver.set_offsets(np.column_stack([x, y]))
                 self._quiver.set_UVC(U, V, mag)
-                self._colorbar.update_normal(self._quiver)
         else:
             if self._quiver is not None:
                 self._quiver.remove()
@@ -68,37 +68,38 @@ class MEF():
 
         self.ax.relim()
         self.ax.autoscale_view()
-        plt.pause(0.001)
+        self.fig.canvas.draw_idle()
+        self.fig.canvas.flush_events()
 
     def solve_increment_charge(self, ddl_bloque, dF, live_plot):
         # Obtension des ddl dans la poutre
-        ddl = np.delete(np.arange(3*self.beam1.N_NODES), ddl_bloque, axis=0)
-        self.beam1.F[:] = 0
+        ddl = np.delete(np.arange(3*self.beam.N_NODES), ddl_bloque, axis=0)
+        self.beam.F[:] = 0
 
         # Loop dF
         for n in range(self.NINC):
-            self.beam1.F += dF
-            print(self.beam1.F)
+            self.beam.F += dF
+            print(self.beam.F)
 
-            self.beam1.actualiser_ks()
+            self.beam.actualiser_ks()
 
             # dU = Ks^-1 * dF
-            self.beam1.dU[ddl] = np.linalg.solve(self.beam1.K[np.ix_(ddl, ddl)], dF[ddl])
+            self.beam.dU[ddl] = np.linalg.solve(self.beam.K[np.ix_(ddl, ddl)], dF[ddl])
 
             # Actualization position Un+1 = Un + dU
-            self.beam1.u += self.beam1.dU
+            self.beam.u += self.beam.dU
 
             # Calcul de nouveau longeur des elements, beta, tita et deformation axiale
-            tita1, ul1 = self.beam1.actualiser_conf(self.beam1.u)
+            tita1, ul1 = self.beam.actualiser_conf(self.beam.u)
 
             # Forces internes
-            self.beam1.actualiser_iforces(tita=tita1, ul=ul1)
+            self.beam.actualiser_iforces(tita=tita1, ul=ul1)
 
             # Correction dU iteratif avec Newton-Raphson
-            R1 = self.beam1.q[ddl] - self.beam1.F[ddl]     # Residual forces (sans les 3 premiers qui sont les conditions de contournement)
+            R1 = self.beam.q[ddl] - self.beam.F[ddl]     # Residual forces (sans les 3 premiers qui sont les conditions de contournement)
 
-            u_cur1 = self.beam1.u.copy()
-            self.beam1.dUk[:] = 0
+            u_cur1 = self.beam.u.copy()
+            self.beam.dUk[:] = 0
 
             # Loop correction dU
             convergence = 0
@@ -108,21 +109,21 @@ class MEF():
                     break
 
                 # Actualization Ks pour nouveau iteration
-                self.beam1.actualiser_ks()
+                self.beam.actualiser_ks()
 
                 # Correction dUk+1 = dUk - K^-1 * R
-                self.beam1.dUk[ddl] -= np.linalg.solve(self.beam1.K[np.ix_(ddl, ddl)], R1)
+                self.beam.dUk[ddl] -= np.linalg.solve(self.beam.K[np.ix_(ddl, ddl)], R1)
 
                 # u_cur = Un+1 + dUk+1
-                u_cur1[ddl] = self.beam1.u[ddl] + self.beam1.dUk[ddl]
+                u_cur1[ddl] = self.beam.u[ddl] + self.beam.dUk[ddl]
 
                 # Nouveau calcul de deformations apres iteration Newton-Raphson
-                tita1, ul1 = self.beam1.actualiser_conf(u_cur1)
+                tita1, ul1 = self.beam.actualiser_conf(u_cur1)
 
                 # Nouvelles forces internes
-                self.beam1.actualiser_iforces(tita=tita1, ul=ul1)
+                self.beam.actualiser_iforces(tita=tita1, ul=ul1)
 
-                R1 = self.beam1.q[ddl] - self.beam1.F[ddl]     # Residual forces (sans les 3 premiers qui sont les conditions de contournement)
+                R1 = self.beam.q[ddl] - self.beam.F[ddl]     # Residual forces (sans les 3 premiers qui sont les conditions de contournement)
 
             if not convergence:
                 print(f"Inc {n} - It {k}: Pas de convergence")
@@ -131,25 +132,25 @@ class MEF():
                 quit()
 
             # Apres NR Un+1 = U_cur
-            self.beam1.u = u_cur1.copy()
-            self.beam1.evol_u[n, :] = u_cur1.copy()
-            if live_plot:
+            self.beam.u = u_cur1.copy()
+            self.beam.evol_u[n, :] = u_cur1.copy()
+            if live_plot and n % self.draw_every == 0:
                 self._draw()
 
     def solve_increment_deplacement(self, deltaU, noeud, ddl_bloque, live_plot):
         du = deltaU / self.NINC
 
-        ddl = np.delete(np.arange(3*self.beam1.N_NODES), ddl_bloque, axis=0)
+        ddl = np.delete(np.arange(3*self.beam.N_NODES), ddl_bloque, axis=0)
 
         for n in range(self.NINC):
-            self.beam1.u[3*noeud:3*noeud+3] += du
-            tita, ul = self.beam1.actualiser_conf(self.beam1.u)
-            self.beam1.actualiser_iforces(tita=tita, ul=ul)
+            self.beam.u[3*noeud:3*noeud+3] += du
+            tita, ul = self.beam.actualiser_conf(self.beam.u)
+            self.beam.actualiser_iforces(tita=tita, ul=ul)
 
-            R = self.beam1.q[ddl] - self.beam1.F[ddl]
+            R = self.beam.q[ddl] - self.beam.F[ddl]
 
-            u_cur = self.beam1.u.copy()
-            self.beam1.dUk[:] = 0
+            u_cur = self.beam.u.copy()
+            self.beam.dUk[:] = 0
 
             convergence = 0
             for k in range(self.maxiter):               
@@ -158,21 +159,21 @@ class MEF():
                     break
                             
                 # Actualization Ks pour nouveau iteration
-                self.beam1.actualiser_ks()
+                self.beam.actualiser_ks()
 
                 # Correction dUk+1 = dUk - K^-1 * R
-                self.beam1.dUk[ddl] -= np.linalg.solve(self.beam1.K[np.ix_(ddl, ddl)], R)
+                self.beam.dUk[ddl] -= np.linalg.solve(self.beam.K[np.ix_(ddl, ddl)], R)
 
                 # u_cur = Un+1 + dUk+1
-                u_cur[ddl] = self.beam1.u[ddl] + self.beam1.dUk[ddl]
+                u_cur[ddl] = self.beam.u[ddl] + self.beam.dUk[ddl]
 
                 # Nouveau calcul de deformations apres iteration Newton-Raphson
-                tita1, ul1 = self.beam1.actualiser_conf(u_cur)
+                tita1, ul1 = self.beam.actualiser_conf(u_cur)
 
                 # Nouvelles forces internes
-                self.beam1.actualiser_iforces(tita=tita1, ul=ul1)
+                self.beam.actualiser_iforces(tita=tita1, ul=ul1)
 
-                R = self.beam1.q[ddl] - self.beam1.F[ddl]     # Residual forces (sans les 3 premiers qui sont les conditions de contournement)
+                R = self.beam.q[ddl] - self.beam.F[ddl]     # Residual forces (sans les 3 premiers qui sont les conditions de contournement)
 
             if not convergence:
                 print(f"Inc {n} - It {k}: Pas de convergence")
@@ -180,13 +181,13 @@ class MEF():
                 self.montrer_solution()
                 quit()
 
-            self.beam1.u = u_cur.copy()
-            self.beam1.evol_u[n, :] = self.beam1.u.copy()
-            if live_plot:
+            self.beam.u = u_cur.copy()
+            self.beam.evol_u[n, :] = self.beam.u.copy()
+            if live_plot and n % self.draw_every == 0:
                 self._draw()
 
     def condition_initiale(self, pos_encastrement, pos_finale, live_plot=False):
-        self.beam1.configuration_neutre(gamma=np.deg2rad(90), x0=pos_encastrement[0], y0=pos_encastrement[1])
+        self.beam.configuration_neutre(gamma=np.deg2rad(90), x0=pos_encastrement[0], y0=pos_encastrement[1])
         
         noeuds_contraintes = {
             "1": 0,
@@ -202,11 +203,10 @@ class MEF():
 
         # Noued qui bougera de forme arbitraire
         noeud_bouge = 20
-        deltaU = pos_finale - self.beam1.u[3*noeud_bouge:3*noeud_bouge+3]
+        deltaU = pos_finale - self.beam.u[3*noeud_bouge:3*noeud_bouge+3]
 
         self.solve("deplacement", ddl_bloque, deltaU, noeud_bouge, live_plot=live_plot)
         self.NINC = 150
-        #self.solve("force", [0, 1, 2, -3, -2, -1], live_plot=live_plot)
 
     def solve(self, type, ddl_bloques, deltaU=np.zeros(1), noeud=0, dF=np.zeros(1), live_plot=False):
         if type == "force":
@@ -217,11 +217,11 @@ class MEF():
 
     def montrer_solution(self):
         print(f"\n\nConfiguration finale:\n")
-        print(f"x = {self.beam1.u[::3]*1000}")
-        print(f"y = {self.beam1.u[1::3]*1000}")
-        print(f"tita = {self.beam1.u[2::3]}")
-        print(f"L = {self.beam1.L}")
-        print(f"q = {self.beam1.q}")
+        print(f"x = {self.beam.u[::3]*1000}")
+        print(f"y = {self.beam.u[1::3]*1000}")
+        print(f"tita = {self.beam.u[2::3]}")
+        print(f"L = {self.beam.L}")
+        print(f"q = {self.beam.q}")
         self._draw()
 
 def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_nodo=3):
@@ -244,10 +244,10 @@ def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_
     return gdl_bloqueados
 
 if __name__ == "__main__":
-    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=50, tol=0.01)
-    solver.condition_initiale([-0.1, 0], np.array([0.1, 0, np.pi]), live_plot=False)
-
-    dF = np.zeros(3*solver.beam1.N_NODES)
+    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=50, tol=0.01, draw_every=30)
+    solver.condition_initiale([-0.1, 0], np.array([0.1, 0, np.pi]), live_plot=True)
+    
+    dF = np.zeros(3*solver.beam.N_NODES)
     dF[3*10+1] = -0.5 / solver.NINC
     
     solver.solve("force", [0, 1, 2, -3, -2, -1], dF=dF, live_plot=True)
