@@ -6,12 +6,13 @@ class Beam():
         self.large = large
         self.haut = haut
         self.L0t = L0t
-        self.YOUNG = YOUNG
+        self.YOUNG1 = YOUNG
+        self.YOUNG2 = YOUNG * 100                               # Simuler elements 9 et 10 plus rigides
         self.POID = 1220*large*haut*L0t
         self.AREA = large*haut
         self.INERTIA = (large*haut**3.0)/12.0
         self.radius = np.sqrt(self.INERTIA / self.AREA)
-        self.Mc = 2.0*np.pi*YOUNG*self.INERTIA/L0t
+        self.Mc = 2.0*np.pi*self.YOUNG1*self.INERTIA/L0t
 
         # Parametres du MEF
         self.N_ELEM = N_ELEM
@@ -41,17 +42,22 @@ class Beam():
         self.B[2, 5, :] = 1.0
         
         # 3x3 Meme pour tous les elements parce que la section est constant
-        self.C = np.array([[1,      0     ,      0     ],
-                           [0, 4*self.radius**2, 2*self.radius**2],
-                           [0, 2*self.radius**2, 4*self.radius**2]]) * YOUNG * self.AREA * (N_ELEM / L0t)
+        self.C1 = np.array([[1,      0     ,      0     ],
+                            [0, 4*self.radius**2, 2*self.radius**2],
+                            [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG1 * self.AREA * (N_ELEM / L0t)
+        
+        # Simuler elements 9 et 10 plus rigides
+        self.C2 = np.array([[1,      0     ,      0     ],
+                            [0, 4*self.radius**2, 2*self.radius**2],
+                            [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG2 * self.AREA * (N_ELEM / L0t)
         
         # 3(N_ELEM+1)x3(N_ELEM+1) Variationally consistent tangent stiffness matrix
         self.K = np.zeros((3*self.N_NODES, 3*self.N_NODES))
 
-        # 6x6xN_e Standard transformed global tangent stiffness matrix
+        # 6x6xN_ELEM Standard transformed global tangent stiffness matrix
         self.kt = np.zeros((6, 6, N_ELEM))
 
-        # 6x6xN_e kt_sigma
+        # 6x6xN_ELEM kt_sigma
         self.k_sigma = np.zeros((6, 6, N_ELEM))
 
     def forces_externes(self):
@@ -160,7 +166,7 @@ class Beam():
         M1 = self.ql[1::3]
         M2 = self.ql[2::3]
 
-        np.einsum('kin, kl, ljn -> ijn', self.B, self.C, self.B, out=self.kt)
+        np.einsum('kin, kl, ljn -> ijn', self.B, self.C1, self.B, out=self.kt)
 
         alpha = N / self.L                     # (N_ELEM,)
         beta  = (M1 + M2) / self.L**2          # (N_ELEM,)
@@ -215,7 +221,7 @@ class Beam():
         self.q[:] = 0
         # Efforts repere locale
         # N
-        self.ql[0::3] = self.YOUNG * self.AREA * ul / self.L0
+        self.ql[0::3] = self.YOUNG1 * self.AREA * ul / self.L0
 
         tita1l = tita[0:-1] + self.Beta_0 - self.Beta
         tita2l = tita[1:] + self.Beta_0 - self.Beta
@@ -223,9 +229,9 @@ class Beam():
         # Obtention moments
         for i in range(self.N_ELEM):            
             # M1
-            self.ql[3*i+1] = 2 * self.YOUNG * self.INERTIA * (2*tita1l[i] + tita2l[i]) / self.L0[i]
+            self.ql[3*i+1] = 2 * self.YOUNG1 * self.INERTIA * (2*tita1l[i] + tita2l[i]) / self.L0[i]
             # M2
-            self.ql[3*i+2] = 2 * self.YOUNG * self.INERTIA * (tita1l[i] + 2*tita2l[i]) / self.L0[i]
+            self.ql[3*i+2] = 2 * self.YOUNG1 * self.INERTIA * (tita1l[i] + 2*tita2l[i]) / self.L0[i]
 
             # Forces repere globale
             self.q[3*i:3*i+6] += np.matmul(self.B[:, :, i].T, self.ql[3*i:3*i+3])
