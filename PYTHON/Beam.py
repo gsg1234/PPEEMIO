@@ -51,6 +51,14 @@ class Beam():
                             [0, 4*self.radius**2, 2*self.radius**2],
                             [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG2 * self.AREA * (N_ELEM / L0t)
         
+        self.C_all = np.broadcast_to(self.C1[:, :, np.newaxis], (3, 3, N_ELEM)).copy()
+        self.C_all[:, :, 9] = self.C2
+        self.C_all[:, :, 10] = self.C2
+
+        self.YOUNG_elem = np.full(N_ELEM, self.YOUNG1)
+        self.YOUNG_elem[9] = self.YOUNG2
+        self.YOUNG_elem[10] = self.YOUNG2
+
         # 3(N_ELEM+1)x3(N_ELEM+1) Variationally consistent tangent stiffness matrix
         self.K = np.zeros((3*self.N_NODES, 3*self.N_NODES))
 
@@ -166,7 +174,7 @@ class Beam():
         M1 = self.ql[1::3]
         M2 = self.ql[2::3]
 
-        np.einsum('kin, kl, ljn -> ijn', self.B, self.C1, self.B, out=self.kt)
+        np.einsum('kin, kln, ljn -> ijn', self.B, self.C_all, self.B, out=self.kt)
 
         alpha = N / self.L                     # (N_ELEM,)
         beta  = (M1 + M2) / self.L**2          # (N_ELEM,)
@@ -220,18 +228,17 @@ class Beam():
     def actualiser_iforces(self, tita, ul):
         self.q[:] = 0
         # Efforts repere locale
+        tita1l = tita[:-1] + self.Beta_0 - self.Beta
+        tita2l = tita[1:]  + self.Beta_0 - self.Beta
+
+        EI_over_L0 = self.YOUNG_elem * self.INERTIA / self.L0
+
         # N
-        self.ql[0::3] = self.YOUNG1 * self.AREA * ul / self.L0
+        self.ql[0::3] = self.YOUNG_elem * self.AREA * ul / self.L0
 
-        tita1l = tita[0:-1] + self.Beta_0 - self.Beta
-        tita2l = tita[1:] + self.Beta_0 - self.Beta
+        # M1 et M2
+        self.ql[1::3] = 2 * EI_over_L0 * (2*tita1l + tita2l)
+        self.ql[2::3] = 2 * EI_over_L0 * (tita1l + 2*tita2l)
 
-        # Obtention moments
-        for i in range(self.N_ELEM):            
-            # M1
-            self.ql[3*i+1] = 2 * self.YOUNG1 * self.INERTIA * (2*tita1l[i] + tita2l[i]) / self.L0[i]
-            # M2
-            self.ql[3*i+2] = 2 * self.YOUNG1 * self.INERTIA * (tita1l[i] + 2*tita2l[i]) / self.L0[i]
-
-            # Forces repere globale
-            self.q[3*i:3*i+6] += np.matmul(self.B[:, :, i].T, self.ql[3*i:3*i+3])
+        for i in range(self.N_ELEM):
+            self.q[3*i:3*i+6] += self.B[:, :, i].T @ self.ql[3*i:3*i+3]

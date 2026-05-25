@@ -80,7 +80,6 @@ class MEF():
         # Loop dF
         for n in range(self.NINC):
             self.beam.F += dF
-            print(self.beam.F)
 
             self.beam.actualiser_ks()
 
@@ -201,6 +200,7 @@ class MEF():
             "1": {"x": True, "y": True, "tita": True},
             "2": {"x": True, "y": False,  "tita": True}
         }
+        
         # Liste de ddl contraintes par conditions de countour
         ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
 
@@ -235,13 +235,18 @@ class MEF():
         self.solve("deplacement", ddl_bloque, deltaU, 10, live_plot=live_plot)
 
     def condition_initiale(self, live_plot=False):
+        
         self.beam.configuration_neutre(gamma=np.deg2rad(90),
                                        x0=constants.POS_ENCASTREMENT1[0],
                                        y0=constants.POS_ENCASTREMENT1[1])
-        
+        """
+        self.beam.configuration_neutre(gamma=np.deg2rad(0),
+                                       x0=0,
+                                       y0=0)
+        """
         self.position_u(live_plot=live_plot)
 
-        self.ajouter_liason_bras(live_plot=live_plot)
+        #self.ajouter_liason_bras(live_plot=live_plot)
 
         print("listo")
         self.NINC = 150
@@ -283,13 +288,25 @@ def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_
     return gdl_bloqueados
 
 if __name__ == "__main__":
-    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=50, tol=0.01, draw_every=100)
+    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=6000, maxiter=600, tol=0.01, draw_every=200)
     solver.condition_initiale(live_plot=True)
     
     dF = np.zeros(3*solver.beam.N_NODES)
-    #dF[3*10+1] = -0.5 / solver.NINC
-    
-    #solver.solve("force", [0, 1, 2, -3, -2, -1], dF=dF, live_plot=True)
+
+    """
+    dF[0:3] = np.array([0, -solver.beam.POID*solver.beam.L0[0]/(solver.beam.L0t*2), 0]) / solver.NINC
+
+    # Node internes
+    for i in range(1, solver.beam.N_NODES-1):
+        dF[3*i:3*i+3] = np.array([0, -solver.beam.POID*solver.beam.L0[0]/solver.beam.L0t, 0]) / solver.NINC
+
+    # Derniere node
+    dF[-3:] = np.array([0, -solver.beam.POID*solver.beam.L0[0]/(solver.beam.L0t*2), 0]) / solver.NINC
+    """
+
+    #dF[-1] = -0.5 * solver.beam.Mc / solver.NINC
+
+    #solver.solve("force", [0, 1, 2], dF=dF, live_plot=True)
     
     plt.ioff()
     plt.show()
