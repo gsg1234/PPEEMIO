@@ -42,7 +42,7 @@ class EMIOInterface:
         self.t3_var = tk.DoubleVar(value=0.0)
         
         self.x_var = tk.DoubleVar(value=0.0)
-        self.y_var = tk.DoubleVar(value=-150.0)
+        self.y_var = tk.DoubleVar(value=-115.0)
         
         # --- Variables pour l'état valide précédent ---
         self.last_valid_t1 = self.t1_var.get()
@@ -79,7 +79,7 @@ class EMIOInterface:
         ent_t1.pack(side=tk.RIGHT)
         ent_t1.bind('<Return>', self.on_theta_change)
         ent_t1.bind('<FocusOut>', self.on_theta_change)
-        ttk.Scale(frame_art, from_=-np.pi/2, to=0, variable=self.t1_var, command=self.on_theta_change).pack(fill=tk.X, pady=(0, 10))
+        ttk.Scale(frame_art, from_=-90, to=0, variable=self.t1_var, command=self.on_t1_slider_change).pack(fill=tk.X, pady=(0, 10))
         
         # Theta 3
         row_t3 = ttk.Frame(frame_art)
@@ -89,7 +89,7 @@ class EMIOInterface:
         ent_t3.pack(side=tk.RIGHT)
         ent_t3.bind('<Return>', self.on_theta_change)
         ent_t3.bind('<FocusOut>', self.on_theta_change)
-        ttk.Scale(frame_art, from_=-np.pi/2, to=0, variable=self.t3_var, command=self.on_theta_change).pack(fill=tk.X)
+        ttk.Scale(frame_art, from_=-90, to=0, variable=self.t3_var, command=self.on_t3_slider_change).pack(fill=tk.X)
         
         # --- Position (Espace Opérationnel) ---
         frame_op = ttk.LabelFrame(control_frame, text="Position (Espace Opérationnel)", padding="10")
@@ -98,22 +98,22 @@ class EMIOInterface:
         # Position X
         row_x = ttk.Frame(frame_op)
         row_x.pack(fill=tk.X)
-        ttk.Label(row_x, text="Position X:").pack(side=tk.LEFT)
+        ttk.Label(row_x, text="Position X(mm):").pack(side=tk.LEFT)
         ent_x = ttk.Entry(row_x, textvariable=self.x_var, width=8, justify="right")
         ent_x.pack(side=tk.RIGHT)
         ent_x.bind('<Return>', self.on_xy_change)
         ent_x.bind('<FocusOut>', self.on_xy_change)
-        ttk.Scale(frame_op, from_=-100, to=100, variable=self.x_var, command=self.on_xy_change).pack(fill=tk.X, pady=(0, 10))
+        ttk.Scale(frame_op, from_=-100, to=100, variable=self.x_var, command=self.on_x_slider_change).pack(fill=tk.X, pady=(0, 10))
         
         # Position Y
         row_y = ttk.Frame(frame_op)
         row_y.pack(fill=tk.X)
-        ttk.Label(row_y, text="Position Y:").pack(side=tk.LEFT)
+        ttk.Label(row_y, text="Position Y(mm):").pack(side=tk.LEFT)
         ent_y = ttk.Entry(row_y, textvariable=self.y_var, width=8, justify="right")
         ent_y.pack(side=tk.RIGHT)
         ent_y.bind('<Return>', self.on_xy_change)
         ent_y.bind('<FocusOut>', self.on_xy_change)
-        ttk.Scale(frame_op, from_=-200, to=0, variable=self.y_var, command=self.on_xy_change).pack(fill=tk.X)
+        ttk.Scale(frame_op, from_=-200, to=0, variable=self.y_var, command=self.on_y_slider_change).pack(fill=tk.X)
         frame_traj = ttk.LabelFrame(control_frame, text="Trajectoire Automatique", padding="10")
         frame_traj.pack(fill=tk.X, pady=10)
         
@@ -124,10 +124,12 @@ class EMIOInterface:
         self.plot_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
         self.fig.patch.set_facecolor('#f0f0f0')
-        self.ax.set_xlim([-250, 250])
-        self.ax.set_ylim([-350, 150])
+        self.ax.set_xlim([-150, 150])
+        self.ax.set_ylim([-160, 25])
         self.ax.set_aspect('equal')
         self.ax.grid(True)
+        self.ax.set_xlabel('X(mm)')
+        self.ax.set_ylabel('Y(mm)')
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
@@ -136,18 +138,35 @@ class EMIOInterface:
         self.ax.plot(-p.L + p.r*np.cos(theta_c), p.r*np.sin(theta_c), 'k:', linewidth=0.5)
         self.ax.plot([-p.L, p.L], [0, 0], 'k', linewidth=1)
         
-        self.h_r1_prox, = self.ax.plot([], [], 'b', linewidth=4)
-        self.h_r1_cyl,  = self.ax.plot([], [], color=[0.2, 0.2, 0.8], linewidth=8)
-        self.h_r1_rod,  = self.ax.plot([], [], color=[0.6, 0.6, 0.6], linewidth=3)
-        self.h_r1_eff,  = self.ax.plot([], [], color=[0.6, 0.6, 0.6], linewidth=3)
-        self.h_r1_effadd, = self.ax.plot([], [], color=[1.0, 1.0, 1.0], linewidth=3)
+        self.h_r1_prox, = self.ax.plot([], [], color='#000000', linewidth=4)
+        self.h_r1_cyl,  = self.ax.plot([], [], color='#000000', linewidth=8)
+        self.h_r1_rod,  = self.ax.plot([], [], color='#0000FF', linewidth=3)
+        self.h_r1_eff,  = self.ax.plot([], [], color="#0000FF", linewidth=3)
+        self.h_r1_effadd, = self.ax.plot([], [], color='#FFFFFF', linewidth=3)
         
-        self.h_r3_prox, = self.ax.plot([], [], 'r', linewidth=4)
-        self.h_r3_cyl,  = self.ax.plot([], [], color=[0.8, 0.2, 0.2], linewidth=8)
-        self.h_r3_rod,  = self.ax.plot([], [], color=[0.6, 0.6, 0.6], linewidth=3)
-        self.h_r3_eff,  = self.ax.plot([], [], color=[0.6, 0.6, 0.6], linewidth=3)
-        self.h_r3_effadd, = self.ax.plot([], [], color=[1.0, 1.0, 1.0], linewidth=3)
+        self.h_r3_prox, = self.ax.plot([], [], color='#000000', linewidth=4)
+        self.h_r3_cyl,  = self.ax.plot([], [], color='#000000', linewidth=8)
+        self.h_r3_rod,  = self.ax.plot([], [], color='#FF0000', linewidth=3)
+        self.h_r3_eff,  = self.ax.plot([], [], color="#FF0000", linewidth=3)
+        self.h_r3_effadd, = self.ax.plot([], [], color='#FFFFFF', linewidth=3)
 
+        #SPACE DE TRAVAIL
+        x1_tray = np.linspace(p.S1[0], p.S2[0], 100)
+        x2_tray = np.linspace(p.S2[0], p.S3[0], 100)
+        x3_tray = np.linspace(p.S3[0], p.S4[0], 100)
+        x4_tray = np.linspace(p.S4[0], p.S1[0], 100)
+
+        y1_tray = -np.sqrt(p.r_eq_min**2 - (x1_tray - p.L)**2)
+        y2_tray = -np.sqrt(p.r_eq_max**2 - (x2_tray + p.L)**2)
+        y3_tray = -np.sqrt(p.r_eq_max**2 - (x3_tray - p.L)**2)
+        y4_tray = -np.sqrt(p.r_eq_min**2 - (x4_tray + p.L)**2)
+
+        self.sptlim = self.ax.plot(np.concatenate((x1_tray, x2_tray, x3_tray, x4_tray)),np.concatenate((y1_tray, y2_tray, y3_tray, y4_tray)), color='#000000', linestyle='--', linewidth=1)
+        self.repy = self.ax.arrow(0, 0, 0, 10, head_width=1, head_length=3, fc="#00FF00", ec="#00FF00", zorder=100)
+        self.repx = self.ax.arrow(0, 0, 10, 0, head_width=1, head_length=3, fc="#FF0000", ec="#FF0000", zorder=100)
+        self.ax.text(12, 5, 'x', fontsize=12, color="#FF0000", fontweight='bold', va='center', zorder=101)
+        self.ax.text(5, 12, 'y', fontsize=12, color="#00FF00", fontweight='bold', ha='center', zorder=101)
+        self.canvas.draw()
         
 
     def calculer_mgd(self, th1, th3):
@@ -215,14 +234,14 @@ class EMIOInterface:
             self.verrou_calcul = True
             
             # Mise à jour de l'interface (Sliders et Textes)
-            self.t1_var.set(round(th1, 4))
-            self.t3_var.set(round(th3, 4))
-            self.x_var.set(round(x, 2))
-            self.y_var.set(round(y, 2))
+            self.t1_var.set(round(th1*180/np.pi, 1))
+            self.t3_var.set(round(th3*180/np.pi, 1))
+            self.x_var.set(round(x))
+            self.y_var.set(round(y))
             
             # Sauvegarde de ce nouvel état valide
-            self.last_valid_t1 = th1
-            self.last_valid_t3 = th3
+            self.last_valid_t1 = th1*180/np.pi
+            self.last_valid_t3 = th3*180/np.pi
             self.last_valid_x = x
             self.last_valid_y = y
             
@@ -259,12 +278,28 @@ class EMIOInterface:
     # ==========================================
     # GESTION DES EVENEMENTS (SLIDERS)
     # ==========================================
+    def on_t1_slider_change(self, value):
+        self.t1_var.set(round(float(value), 1))
+        self.on_theta_change()
+
+    def on_t3_slider_change(self, value):
+        self.t3_var.set(round(float(value), 1))
+        self.on_theta_change()
+
+    def on_x_slider_change(self, value):
+        self.x_var.set(round(float(value)))
+        self.on_xy_change()
+
+    def on_y_slider_change(self, value):
+        self.y_var.set(round(float(value)))
+        self.on_xy_change()
+
     def on_theta_change(self, event=None):
         if self.verrou_calcul: return
         
         try:
-            th1 = self.t1_var.get()
-            th3 = self.t3_var.get()
+            th1 = self.t1_var.get()*np.pi/180  # Convertir de radians à degrés pour le robot
+            th3 = self.t3_var.get()*np.pi/180  # Convertir de radians à degrés pour le robot
         except tk.TclError:
             # L'utilisateur a tapé du texte invalide dans la case
             self.root.after(1, self.force_recul_moteurs)
@@ -282,12 +317,12 @@ class EMIOInterface:
         # Si le calcul a réussi, on vérifie si la position X, Y est dans l'espace de travail
         if verifierSpTr(x, y) == 1:
             self.verrou_calcul = True
-            self.x_var.set(round(x, 2))
-            self.y_var.set(round(y, 2))
+            self.x_var.set(round(x))
+            self.y_var.set(round(y))
             
             # Sauvegarde du nouvel état valide
-            self.last_valid_t1 = th1
-            self.last_valid_t3 = th3
+            self.last_valid_t1 = th1*180/np.pi
+            self.last_valid_t3 = th3*180/np.pi
             self.last_valid_x = x
             self.last_valid_y = y
             
@@ -314,10 +349,10 @@ class EMIOInterface:
         if verifierSpTr(x, y) == 1:
             th1, th3, d1, d3 = self.calculer_mgi(x, y)
             self.verrou_calcul = True
-            self.t1_var.set(round(th1, 4)) # Arrondi pour un affichage plus propre
-            self.t3_var.set(round(th3, 4))
-            self.last_valid_t1 = th1
-            self.last_valid_t3 = th3
+            self.t1_var.set(round(th1*180/np.pi, 1)) # Arrondi pour un affichage plus propre
+            self.t3_var.set(round(th3*180/np.pi, 1))
+            self.last_valid_t1 = th1*180/np.pi
+            self.last_valid_t3 = th3*180/np.pi
             self.last_valid_x = x
             self.last_valid_y = y
             
@@ -346,13 +381,13 @@ class EMIOInterface:
         p0_1 = np.array([p.L, 0])
         p1_1 = p0_1 + np.array([p.r*np.cos(t1), p.r*np.sin(t1)])
         p2_1 = p1_1 + np.array([d1_val*np.cos(t1-np.pi/2), d1_val*np.sin(t1-np.pi/2)])
-        p2_1aux = p2_1 - np.array([100*np.cos(t1-np.pi/2), 100*np.sin(t1-np.pi/2)])
+        p2_1aux = p2_1 - np.array([80*np.cos(t1-np.pi/2), 80*np.sin(t1-np.pi/2)])
         p3_1 = p2_1 + np.array([p.l_len*np.cos(t1-np.pi/2-np.pi/4), p.l_len*np.sin(t1-np.pi/2-np.pi/4)])
         
         p0_3 = np.array([-p.L, 0])
         p1_3 = p0_3 + np.array([-p.r*np.cos(t3), p.r*np.sin(t3)])
         p2_3 = p1_3 + np.array([d3_val*np.cos(t3+np.pi/2), -d3_val*np.sin(t3+np.pi/2)])
-        p2_3aux = p2_3 - np.array([100*np.cos(t3+np.pi/2), -100*np.sin(t3+np.pi/2)])
+        p2_3aux = p2_3 - np.array([80*np.cos(t3+np.pi/2), -80*np.sin(t3+np.pi/2)])
         p3_3 = p2_3 + np.array([p.l_len*np.cos(t3+np.pi/2-np.pi/4), -p.l_len*np.sin(t3+np.pi/2-np.pi/4)])
         
         self.h_r1_prox.set_data([p0_1[0], p1_1[0]], [p0_1[1], p1_1[1]])
