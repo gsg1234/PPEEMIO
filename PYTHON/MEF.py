@@ -312,8 +312,8 @@ if __name__ == "__main__":
     dF[-3:] = np.array([0, -solver.beam.POID*solver.beam.L0[0]/(solver.beam.L0t*2), 0]) / solver.NINC
     """
 
-    dF[3*10] = 0.5 / solver.NINC
-    dF[3*10+1] = -0.5 / solver.NINC
+    dF[3*10] = -0.5 / solver.NINC
+    dF[3*10+1] = 0.5 / solver.NINC
 
     noeuds_contraintes = {
             "1": 0,
