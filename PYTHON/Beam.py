@@ -7,7 +7,7 @@ class Beam():
         self.haut = haut
         self.L0t = L0t
         self.YOUNG1 = YOUNG
-        self.YOUNG2 = YOUNG * 100                               # Simuler elements 9 et 10 plus rigides
+        self.YOUNG2 = YOUNG * 8                               # Simuler elements 9 et 10 plus rigides
         self.POID = 1220*large*haut*L0t
         self.AREA = large*haut
         self.INERTIA = (large*haut**3.0)/12.0

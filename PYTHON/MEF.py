@@ -13,13 +13,9 @@ class MEF():
         self.tol = tol
         self.beam = Beam(large, haut, L0t, YOUNG, N_ELEM, NINC)
         self.draw_every = draw_every
-        self._quiver = None
-        self._colorbar = None
 
         plt.ion()
-        self.fig, self.ax = plt.subplots()
-        self._setup_axes()
-        self.beam_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
+        self._init_figure()
         plt.show(block=False)
 
     def _setup_axes(self):
@@ -29,17 +25,27 @@ class MEF():
         self.ax.grid(True)
         self.ax.set_aspect('equal', adjustable='datalim')
 
+    def _init_figure(self):
+        self.fig = plt.figure()
+        gs = self.fig.add_gridspec(1, 2, width_ratios=[20, 1], wspace=0.05)
+        self.ax = self.fig.add_subplot(gs[0])
+        self._cbar_ax = self.fig.add_subplot(gs[1])
+        self._setup_axes()
+        self.beam_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
+        self._quiver = None
+
     def _draw(self):
         if not plt.fignum_exists(self.fig.number):
-            self._quiver = None
-            self._colorbar = None
-            self.fig, self.ax = plt.subplots()
-            self._setup_axes()
-            self.beam_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
+            self._init_figure()
 
         x = self.beam.u[::3] * 1000
         y = self.beam.u[1::3] * 1000
         self.beam_line.set_data(x, y)
+
+        if self._quiver is not None:
+            self._quiver.remove()
+            self._quiver = None
+        self._cbar_ax.cla()
 
         Fx = self.beam.F[::3]
         Fy = self.beam.F[1::3]
@@ -47,30 +53,17 @@ class MEF():
         nonzero = mag > 0
         if np.any(nonzero):
             scale = 0.1 * max(x.max() - x.min(), y.max() - y.min(), 1e-6)
-            safe_mag = np.where(nonzero, mag, 1)
-            U = np.where(nonzero, Fx / safe_mag * scale, 0)
-            V = np.where(nonzero, Fy / safe_mag * scale, 0)
-            if self._quiver is None:
-                self._quiver = self.ax.quiver(x, y, U, V, mag,
-                                              cmap='brg', angles='xy',
-                                              scale_units='xy', scale=1, width=0.006,
-                                              clim=(-1, 1))
-                self._colorbar = self.fig.colorbar(self._quiver, ax=self.ax, label='|F| [N]')
-            else:
-                self._quiver.set_offsets(np.column_stack([x, y]))
-                self._quiver.set_UVC(U, V, mag)
-        else:
-            if self._quiver is not None:
-                self._quiver.remove()
-                self._quiver = None
-            if self._colorbar is not None:
-                self._colorbar.ax.remove()
-                self._colorbar = None
+            safe_mag = np.where(nonzero, mag, 1.0)
+            U = np.where(nonzero, Fx / safe_mag * scale, 0.0)
+            V = np.where(nonzero, Fy / safe_mag * scale, 0.0)
+            self._quiver = self.ax.quiver(x, y, U, V, mag,
+                                          cmap='brg', angles='xy',
+                                          scale_units='xy', scale=1, width=0.006, clim=(0, 1))
+            self.fig.colorbar(self._quiver, cax=self._cbar_ax, label='|F| [N]')
 
         self.ax.relim()
         self.ax.autoscale_view()
-        self.fig.canvas.draw_idle()
-        self.fig.canvas.flush_events()
+        plt.pause(0.001)
 
     def solve_increment_charge(self, ddl_bloque, dF, live_plot):
         # Obtension des ddl dans la poutre
@@ -198,17 +191,31 @@ class MEF():
 
         ddl_bloque = {
             "1": {"x": True, "y": True, "tita": True},
-            "2": {"x": True, "y": False,  "tita": True}
+            "2": {"x": False, "y": False,  "tita": True}
         }
         
         # Liste de ddl contraintes par conditions de countour
-        ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
 
         # Noued qui bougera de forme arbitraire
         noeud_bouge = 20
         deltaU = constants.POS_ENCASTREMENT2 - self.beam.u[3*noeud_bouge:3*noeud_bouge+3]
 
-        self.solve("deplacement", ddl_bloque, deltaU, noeud_bouge, live_plot=live_plot)
+        self.solve("deplacement", liste_ddl_bloque, deltaU, noeud_bouge, live_plot=live_plot)
+
+        # FAIT EN 2 ETAPES POUR EVITER PROBLEMES DE CONVERGENCE
+        # MODELE DIVERGE SI ON BLOQUE LE DEPLACEMENT SUR AXIS Y INITIALEMENT
+        ddl_bloque = {
+            "1": {"x": True, "y": True, "tita": True},
+            "2": {"x": True, "y": True,  "tita": True}
+        }
+
+        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+
+        deltaU = constants.POS_ENCASTREMENT2 - self.beam.u[3*noeud_bouge:3*noeud_bouge+3]
+
+        self.solve("deplacement", liste_ddl_bloque, deltaU, noeud_bouge, live_plot=live_plot)
+
 
     def ajouter_liason_bras(self, live_plot=False):
         noeuds_contraintes = {
@@ -227,12 +234,12 @@ class MEF():
             "5": {"x": True, "y": True,  "tita": True}
         }
         # Liste de ddl contraintes par conditions de countour
-        ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
 
         deltaU = self.beam.u[3*9:3*9+3] - np.array([0, self.beam.u[3*10+1], 0])
         deltaU[0] = 0
         deltaU[2] = 0
-        self.solve("deplacement", ddl_bloque, deltaU, 10, live_plot=live_plot)
+        self.solve("deplacement", liste_ddl_bloque, deltaU, 10, live_plot=live_plot)
 
     def condition_initiale(self, live_plot=False):
         
@@ -246,10 +253,11 @@ class MEF():
         """
         self.position_u(live_plot=live_plot)
 
-        #self.ajouter_liason_bras(live_plot=live_plot)
+        self.ajouter_liason_bras(live_plot=live_plot)
 
-        print("listo")
+        #print(f"tita = {self.beam.u[3*10+2]}")
         self.NINC = 150
+        self.draw_every = 5
 
     def solve(self, type, ddl_bloques, deltaU=np.zeros(1), noeud=0, dF=np.zeros(1), live_plot=False):
         if type == "force":
@@ -288,7 +296,7 @@ def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_
     return gdl_bloqueados
 
 if __name__ == "__main__":
-    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=6000, maxiter=600, tol=0.01, draw_every=200)
+    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=50, tol=0.01, draw_every=200)
     solver.condition_initiale(live_plot=True)
     
     dF = np.zeros(3*solver.beam.N_NODES)
@@ -304,9 +312,24 @@ if __name__ == "__main__":
     dF[-3:] = np.array([0, -solver.beam.POID*solver.beam.L0[0]/(solver.beam.L0t*2), 0]) / solver.NINC
     """
 
-    #dF[-1] = -0.5 * solver.beam.Mc / solver.NINC
+    dF[3*10] = 0.5 / solver.NINC
+    dF[3*10+1] = -0.5 / solver.NINC
 
-    #solver.solve("force", [0, 1, 2], dF=dF, live_plot=True)
+    noeuds_contraintes = {
+            "1": 0,
+            "2": 10,
+            "3": 20
+    }
+
+    ddl_bloque = {
+        "1": {"x": True, "y": True, "tita": True},
+        "2": {"x": False, "y": False,  "tita": True},
+        "3": {"x": True, "y": True,  "tita": True}
+    }
+
+    liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+
+    solver.solve("force", liste_ddl_bloque, dF=dF, live_plot=True)
     
     plt.ioff()
     plt.show()
