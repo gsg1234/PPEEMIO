@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import TextBox
-import constants
+from matplotlib.widgets import TextBox, Button
+import json
 
+import constants
 from Beam import Beam
 from CD import get_pos_encastrement1, get_pos_encastrement3
 
@@ -45,12 +46,39 @@ class MEF():
             cx, cy = cent[0] * 1000, cent[1] * 1000
             self.ax.plot(cx + r_mm * np.cos(theta), cy + r_mm * np.sin(theta), '--', color='gray')
 
-        ax_tb1 = self.fig.add_axes([0.20, 0.02, 0.15, 0.04])
-        ax_tb3 = self.fig.add_axes([0.70, 0.02, 0.15, 0.04])
+        ax_tb1 = self.fig.add_axes((0.20, 0.02, 0.15, 0.04))
+        ax_tb3 = self.fig.add_axes((0.70, 0.02, 0.15, 0.04))
         self._tb_tita1 = TextBox(ax_tb1, 'Tita 1: ', initial=str(self.beam.tita1))
         self._tb_tita3 = TextBox(ax_tb3, 'Tita 3: ', initial=str(self.beam.tita3))
         self._tb_tita1.on_submit(self._set_tita1)
         self._tb_tita3.on_submit(self._set_tita3)
+
+        ax_btn = self.fig.add_axes((0.44, 0.02, 0.12, 0.04))
+        self._btn = Button(ax_btn, 'Telecharger forces')
+        self._btn.on_clicked(self._on_button_click)
+
+    def _on_button_click(self, event):
+        with open("efforts.json", "r") as file:
+            data = json.load(file)
+
+        F = self.parse_efforts(data)
+
+        noeuds_contraintes = {
+            "1": 0,
+            "2": 10,
+            "3": 20
+        }
+
+        ddl_bloque = {
+            "1": {"x": True, "y": True, "tita": True},
+            "2": {"x": False, "y": False,  "tita": True},
+            "3": {"x": True, "y": True,  "tita": True}
+        }
+
+        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+
+        self.solve("force", liste_ddl_bloque, F=F, live_plot=True)
+        
 
     def _set_tita1(self, text):
         try:
@@ -59,7 +87,6 @@ class MEF():
             pos_enc1 = get_pos_encastrement1(self.beam.tita1)
 
             pos_direc_enc1 = np.hstack((pos_enc1, -self.beam.tita1))
-            print(pos_direc_enc1)
 
             noeuds_contraintes = {
                 "1": 0,
@@ -87,7 +114,6 @@ class MEF():
             pos_enc3 = get_pos_encastrement3(self.beam.tita3)
 
             pos_direc_enc3 = np.hstack((pos_enc3, np.pi + self.beam.tita3))
-            print(pos_direc_enc3)
 
             noeuds_contraintes = {
                 "1": 0,
@@ -344,6 +370,18 @@ class MEF():
         print(f"F = {self.beam.F}")
         self._draw()
 
+    def parse_efforts(self, data):
+        vector = np.zeros(3 * self.beam.N_NODES)
+
+        for i in range(self.beam.N_NODES):
+            node_name = f"Node{i}"
+
+            vector[3*i] = data[node_name]["Fx"]
+            vector[3*i+1] = data[node_name]["Fy"]
+            vector[3*i+2] = data[node_name]["M"]
+
+        return vector
+
 def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_nodo=3):
     mapa_gdl = {
         "x": 0,
@@ -382,23 +420,11 @@ if __name__ == "__main__":
     }
 
     liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
-    """
-    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
 
     F[3*7] = 2
     F[3*7+1] = 0
 
     solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
 
-    F[3*12] = 0
-    F[3*12+1] = -2
-
-    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
-
-    F[3*10] = 0.5
-    F[3*10+1] = -0.75
-
-    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
-    """
     plt.ioff()
     plt.show()
