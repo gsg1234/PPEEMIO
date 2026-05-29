@@ -65,19 +65,19 @@ class MEF():
         self.ax.autoscale_view()
         plt.pause(0.001)
 
-    def solve_increment_charge(self, ddl_bloque, dF, live_plot):
+    def solve_increment_charge(self, ddl_bloque, F, live_plot):
         # Obtension des ddl dans la poutre
         ddl = np.delete(np.arange(3*self.beam.N_NODES), ddl_bloque, axis=0)
-        self.beam.F[:] = 0
+        self.beam.dF[:] = (F - self.beam.F) / self.NINC
 
         # Loop dF
         for n in range(self.NINC):
-            self.beam.F += dF
+            self.beam.F += self.beam.dF
 
             self.beam.actualiser_ks()
 
             # dU = Ks^-1 * dF
-            self.beam.dU[ddl] = np.linalg.solve(self.beam.K[np.ix_(ddl, ddl)], dF[ddl])
+            self.beam.dU[ddl] = np.linalg.solve(self.beam.K[np.ix_(ddl, ddl)], self.beam.dF[ddl])
 
             # Actualization position Un+1 = Un + dU
             self.beam.u += self.beam.dU
@@ -255,13 +255,12 @@ class MEF():
 
         self.ajouter_liason_bras(live_plot=live_plot)
 
-        #print(f"tita = {self.beam.u[3*10+2]}")
         self.NINC = 150
-        self.draw_every = 5
+        self.draw_every = 10
 
-    def solve(self, type, ddl_bloques, deltaU=np.zeros(1), noeud=0, dF=np.zeros(1), live_plot=False):
+    def solve(self, type, ddl_bloques, deltaU=np.zeros(1), noeud=0, F=np.zeros(1), live_plot=False):
         if type == "force":
-            self.solve_increment_charge(ddl_bloques, dF, live_plot)
+            self.solve_increment_charge(ddl_bloques, F, live_plot)
         elif type == "deplacement":
             self.solve_increment_deplacement(deltaU, noeud, ddl_bloques, live_plot)
         self._draw()
@@ -297,23 +296,9 @@ def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_
 
 if __name__ == "__main__":
     solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=50, tol=0.01, draw_every=200)
-    solver.condition_initiale(live_plot=True)
+    solver.condition_initiale(live_plot=False)
     
-    dF = np.zeros(3*solver.beam.N_NODES)
-
-    """
-    dF[0:3] = np.array([0, -solver.beam.POID*solver.beam.L0[0]/(solver.beam.L0t*2), 0]) / solver.NINC
-
-    # Node internes
-    for i in range(1, solver.beam.N_NODES-1):
-        dF[3*i:3*i+3] = np.array([0, -solver.beam.POID*solver.beam.L0[0]/solver.beam.L0t, 0]) / solver.NINC
-
-    # Derniere node
-    dF[-3:] = np.array([0, -solver.beam.POID*solver.beam.L0[0]/(solver.beam.L0t*2), 0]) / solver.NINC
-    """
-
-    dF[3*10] = -0.5 / solver.NINC
-    dF[3*10+1] = 0.5 / solver.NINC
+    F = np.zeros(3*solver.beam.N_NODES)
 
     noeuds_contraintes = {
             "1": 0,
@@ -329,7 +314,27 @@ if __name__ == "__main__":
 
     liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
 
-    solver.solve("force", liste_ddl_bloque, dF=dF, live_plot=True)
+    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
+
+    F[3*10] = 0.5
+    F[3*10+1] = -0.2
+
+    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
+
+    F[3*10] = -1
+    F[3*10+1] = 0.5
+
+    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
+
+    F[3*10] = -0.5
+    F[3*10+1] = -0.5
+
+    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
+
+    F[3*10] = -0.9
+    F[3*10+1] = -0.75
+
+    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
     
     plt.ioff()
     plt.show()
