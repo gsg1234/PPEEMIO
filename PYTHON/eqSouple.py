@@ -22,10 +22,6 @@ def main():
     }
 
     liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
-
-    F = np.zeros(3*solver.beam.N_NODES)
-
-    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
     
     plt.ioff()
     plt.show()

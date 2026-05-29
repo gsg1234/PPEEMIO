@@ -1,7 +1,11 @@
 import numpy as np
 
-a = [0, 1, 2, -3, -1]
+a = np.ones(10)
 
-a.insert(-1, -2)
+b = 2
+
+c = np.hstack((a, b))
 
 print(a)
+print(b)
+print(c)

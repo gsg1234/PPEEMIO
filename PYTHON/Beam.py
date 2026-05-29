@@ -7,12 +7,14 @@ class Beam():
         self.haut = haut
         self.L0t = L0t
         self.YOUNG1 = YOUNG
-        self.YOUNG2 = YOUNG * 8                                 # Simuler elements 9 et 10 plus rigides
+        self.YOUNG2 = YOUNG * 6                                 # Simuler elements 9 et 10 plus rigides
         self.POID = 1220*large*haut*L0t
         self.AREA = large*haut
         self.INERTIA = (large*haut**3.0)/12.0
         self.radius = np.sqrt(self.INERTIA / self.AREA)
         self.Mc = 2.0*np.pi*self.YOUNG1*self.INERTIA/L0t
+        self.tita1 = 0.0
+        self.tita3 = 0.0
 
         # Parametres du MEF
         self.N_ELEM = N_ELEM
@@ -89,42 +91,11 @@ class Beam():
         #self.dF[-2] += -1*0.0035 / self.NINC          # Force pour poid
         #self.dF[-1] += -0*0.0035*0.062 / self.NINC    # Traslation de la force de CM au dernier noeud
 
-    def configuration_neutre(self, gamma, x0, y0):
-        """
-        # ELEMENTS [0:N_ELEM/4]
-        #VIGA EN |__|
-        self.u[:3*(int(self.N_ELEM/4+1)):3] = 0                                                                         # Position initiale sur axis X
-        self.u[1:3*(int(self.N_ELEM/4+1)):3] = np.linspace(0, -0.1, int(self.N_ELEM/4+1))                               # Position initiale sur axis Y
-        self.u[2:3*(int(self.N_ELEM/4+1)):3] = 0                                                                        # Position initiale tita
-
-        #ELEMENTS [N_ELEM/4+1:3*N_ELEM/4]
-        self.u[3*(int(self.N_ELEM/4)):3*(int(3*self.N_ELEM/4+1)):3] = np.linspace(0, 0.2, int(2*self.N_ELEM/4+1))       # Position initiale sur axis X
-        self.u[3*(int(self.N_ELEM/4))+1:3*(int(3*self.N_ELEM/4+1)):3] = -0.1                                            # Position initiale sur axis Y
-        self.u[3*(int(self.N_ELEM/4))+2:3*(int(3*self.N_ELEM/4+1)):3] = 0                                               # Position initiales tita
-
-        # ELEMENTS [3*N_ELEM/4+1:N_ELEM]
-        self.u[3*(int(3*self.N_ELEM/4)):3*self.N_NODES+1:3] = 0.2                                                       # Position initiale sur X
-        self.u[3*(int(3*self.N_ELEM/4))+1:3*self.N_NODES+1:3] = np.linspace(-0.1, 0, int(self.N_ELEM/4+1))              # Position initiale sur axis Y
-        self.u[3*(int(3*self.N_ELEM/4))+2:3*self.N_NODES+1:3] = 0                                                       # Position initiale tita
-        """
-
-        
+    def configuration_neutre(self, gamma, x0, y0):        
         #VIGA RECTA
         self.u[::3] = np.linspace(x0, x0+self.L0t*np.cos(gamma), self.N_NODES)
         self.u[1::3] = np.linspace(y0, y0-self.L0t*np.sin(gamma), self.N_NODES)
         self.u[2::3] = 0
-        
-
-        """
-        #VIGA CURVA
-        i = 0
-        r = 2*self.L0t/np.pi
-
-        for angle in np.linspace(np.pi, 1.5*np.pi, 21):
-            self.u[3*i] = r*np.cos(angle)
-            self.u[3*i+1] = r*np.sin(angle)
-            i += 1
-        """
 
         # Construction beta en function de la configuration initiale
         x1 = self.u[0:-3:3]

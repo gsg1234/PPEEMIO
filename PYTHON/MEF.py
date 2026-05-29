@@ -1,8 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.widgets import TextBox
 import constants
 
 from Beam import Beam
+from CD import get_pos_encastrement1, get_pos_encastrement3
 
 np.set_printoptions(suppress=True,linewidth=None)
 
@@ -23,16 +25,87 @@ class MEF():
         self.ax.set_xlabel("Position X [mm]")
         self.ax.set_ylabel("Position Y [mm]")
         self.ax.grid(True)
-        self.ax.set_aspect('equal', adjustable='datalim')
+        self.ax.set_xlim(-170, 170)
+        self.ax.set_ylim(-175, 30)
+        #self.ax.set_aspect('equal', adjustable='datalim')
 
     def _init_figure(self):
         self.fig = plt.figure()
+        self.fig.subplots_adjust(bottom=0.15)
         gs = self.fig.add_gridspec(1, 2, width_ratios=[20, 1], wspace=0.05)
         self.ax = self.fig.add_subplot(gs[0])
         self._cbar_ax = self.fig.add_subplot(gs[1])
         self._setup_axes()
         self.beam_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
         self._quiver = None
+
+        theta = np.linspace(0, 2 * np.pi, 300)
+        r_mm = constants.R * 1000
+        for cent in (constants.CENT_MOT1, constants.CENT_MOT3):
+            cx, cy = cent[0] * 1000, cent[1] * 1000
+            self.ax.plot(cx + r_mm * np.cos(theta), cy + r_mm * np.sin(theta), '--', color='gray')
+
+        ax_tb1 = self.fig.add_axes([0.20, 0.02, 0.15, 0.04])
+        ax_tb3 = self.fig.add_axes([0.70, 0.02, 0.15, 0.04])
+        self._tb_tita1 = TextBox(ax_tb1, 'Tita 1: ', initial=str(self.beam.tita1))
+        self._tb_tita3 = TextBox(ax_tb3, 'Tita 3: ', initial=str(self.beam.tita3))
+        self._tb_tita1.on_submit(self._set_tita1)
+        self._tb_tita3.on_submit(self._set_tita3)
+
+    def _set_tita1(self, text):
+        try:
+            self.beam.tita1 = np.deg2rad(float(text))
+            
+            pos_enc1 = get_pos_encastrement1(self.beam.tita1)
+
+            pos_direc_enc1 = np.hstack((pos_enc1, -self.beam.tita1))
+            print(pos_direc_enc1)
+
+            noeuds_contraintes = {
+                "1": 0,
+                "2": 10,
+                "3": 20
+            }
+
+            ddl_bloque = {
+                "1": {"x": True, "y": True, "tita": True},
+                "2": {"x": False, "y": False,  "tita": True},
+                "3": {"x": True, "y": True,  "tita": True}
+            }
+
+            liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+
+            self.solve("deplacement", liste_ddl_bloque, pos_direc_enc1, 0, live_plot=True)
+
+        except ValueError:
+            pass
+
+    def _set_tita3(self, text):
+        try:
+            self.beam.tita3 = np.deg2rad(float(text))
+            
+            pos_enc3 = get_pos_encastrement3(self.beam.tita3)
+
+            pos_direc_enc3 = np.hstack((pos_enc3, np.pi + self.beam.tita3))
+            print(pos_direc_enc3)
+
+            noeuds_contraintes = {
+                "1": 0,
+                "2": 10,
+                "3": 20
+            }
+
+            ddl_bloque = {
+                "1": {"x": True, "y": True, "tita": True},
+                "2": {"x": False, "y": False,  "tita": True},
+                "3": {"x": True, "y": True,  "tita": True}
+            }
+
+            liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+
+            self.solve("deplacement", liste_ddl_bloque, pos_direc_enc3, 20, live_plot=True)
+        except ValueError:
+            pass
 
     def _draw(self):
         if not plt.fignum_exists(self.fig.number):
@@ -132,7 +205,9 @@ class MEF():
             if live_plot and n % self.draw_every == 0:
                 self._draw()
 
-    def solve_increment_deplacement(self, deltaU, noeud, ddl_bloque, live_plot):
+    def solve_increment_deplacement(self, U, noeud, ddl_bloque, live_plot):
+        deltaU = U - self.beam.u[3*noeud:3*noeud+3]
+        
         du = deltaU / self.NINC
 
         ddl = np.delete(np.arange(3*self.beam.N_NODES), ddl_bloque, axis=0)
@@ -199,9 +274,8 @@ class MEF():
 
         # Noued qui bougera de forme arbitraire
         noeud_bouge = 20
-        deltaU = constants.POS_ENCASTREMENT2 - self.beam.u[3*noeud_bouge:3*noeud_bouge+3]
 
-        self.solve("deplacement", liste_ddl_bloque, deltaU, noeud_bouge, live_plot=live_plot)
+        self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT2, noeud_bouge, live_plot=live_plot)
 
         # FAIT EN 2 ETAPES POUR EVITER PROBLEMES DE CONVERGENCE
         # MODELE DIVERGE SI ON BLOQUE LE DEPLACEMENT SUR AXIS Y INITIALEMENT
@@ -212,9 +286,7 @@ class MEF():
 
         liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
 
-        deltaU = constants.POS_ENCASTREMENT2 - self.beam.u[3*noeud_bouge:3*noeud_bouge+3]
-
-        self.solve("deplacement", liste_ddl_bloque, deltaU, noeud_bouge, live_plot=live_plot)
+        self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT2, noeud_bouge, live_plot=live_plot)
 
 
     def ajouter_liason_bras(self, live_plot=False):
@@ -236,33 +308,30 @@ class MEF():
         # Liste de ddl contraintes par conditions de countour
         liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
 
-        deltaU = self.beam.u[3*9:3*9+3] - np.array([0, self.beam.u[3*10+1], 0])
-        deltaU[0] = 0
-        deltaU[2] = 0
-        self.solve("deplacement", liste_ddl_bloque, deltaU, 10, live_plot=live_plot)
+        # Bouger noeud centrale à hauteur de noeud 9
+        u_noeud = self.beam.u[3*10:3*10+3]
+        u_noeud[1] = self.beam.u[3*9+1]
+
+        self.solve("deplacement", liste_ddl_bloque, u_noeud, 10, live_plot=live_plot)
 
     def condition_initiale(self, live_plot=False):
         
         self.beam.configuration_neutre(gamma=np.deg2rad(90),
                                        x0=constants.POS_ENCASTREMENT1[0],
                                        y0=constants.POS_ENCASTREMENT1[1])
-        """
-        self.beam.configuration_neutre(gamma=np.deg2rad(0),
-                                       x0=0,
-                                       y0=0)
-        """
+        
         self.position_u(live_plot=live_plot)
 
         self.ajouter_liason_bras(live_plot=live_plot)
 
-        self.NINC = 150
+        self.NINC = 200
         self.draw_every = 10
 
-    def solve(self, type, ddl_bloques, deltaU=np.zeros(1), noeud=0, F=np.zeros(1), live_plot=False):
+    def solve(self, type, ddl_bloques, U=np.zeros(1), noeud=0, F=np.zeros(1), live_plot=False):
         if type == "force":
             self.solve_increment_charge(ddl_bloques, F, live_plot)
         elif type == "deplacement":
-            self.solve_increment_deplacement(deltaU, noeud, ddl_bloques, live_plot)
+            self.solve_increment_deplacement(U, noeud, ddl_bloques, live_plot)
         self._draw()
 
     def montrer_solution(self):
@@ -295,8 +364,8 @@ def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_
     return gdl_bloqueados
 
 if __name__ == "__main__":
-    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=50, tol=0.01, draw_every=200)
-    solver.condition_initiale(live_plot=False)
+    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=150, tol=0.01, draw_every=200)
+    solver.condition_initiale(live_plot=True)
     
     F = np.zeros(3*solver.beam.N_NODES)
 
@@ -313,28 +382,23 @@ if __name__ == "__main__":
     }
 
     liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+    """
+    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
+
+    F[3*7] = 2
+    F[3*7+1] = 0
+
+    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
+
+    F[3*12] = 0
+    F[3*12+1] = -2
 
     solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
 
     F[3*10] = 0.5
-    F[3*10+1] = -0.2
-
-    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
-
-    F[3*10] = -1
-    F[3*10+1] = 0.5
-
-    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
-
-    F[3*10] = -0.5
-    F[3*10+1] = -0.5
-
-    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
-
-    F[3*10] = -0.9
     F[3*10+1] = -0.75
 
     solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
-    
+    """
     plt.ioff()
     plt.show()
