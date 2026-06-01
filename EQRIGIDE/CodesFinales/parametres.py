@@ -3,7 +3,7 @@ import numpy as np
 L = 100
 r = 25
 l_len = 20  # l
-dmax = 170 #reel 170
+dmax = 170  #reel 170
 dmin = 100
 
 r_eq_max = np.sqrt((-r + l_len*np.cos(np.pi/4))**2 + (-dmax - l_len*np.sin(np.pi/4))**2)
