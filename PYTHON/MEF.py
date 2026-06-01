@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import TextBox, Button
 import json
+from emioapi import EmioAPI, EmioMotors, EmioCamera
 
 import constants
 from Beam import Beam
@@ -17,6 +18,22 @@ class MEF():
         self.beam = Beam(large, haut, L0t, YOUNG, N_ELEM, NINC)
         self.draw_every = draw_every
 
+        self.camera = EmioCamera(track_markers=True)
+        self.camera_connected = self.camera.open()
+
+        self.motors = EmioMotors()
+        self.motors_connected = self.motors.open()
+
+        if self.camera_connected:
+            print("Camera connectée")
+        else:
+            print("Echec de connexion avec camera")
+
+        if self.motors_connected:
+            print("Moteurs connectés")
+        else:
+            print("Echec de connexion avec motors")
+
         plt.ion()
         self._init_figure()
         plt.show(block=False)
@@ -28,7 +45,6 @@ class MEF():
         self.ax.grid(True)
         self.ax.set_xlim(-170, 170)
         self.ax.set_ylim(-175, 30)
-        #self.ax.set_aspect('equal', adjustable='datalim')
 
     def _init_figure(self):
         self.fig = plt.figure()
@@ -38,6 +54,7 @@ class MEF():
         self._cbar_ax = self.fig.add_subplot(gs[1])
         self._setup_axes()
         self.beam_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
+        self._point_vert, = self.ax.plot([], [], 'o', color='green', markersize=12, zorder=5)
         self._quiver = None
 
         theta = np.linspace(0, 2 * np.pi, 300)
@@ -46,18 +63,34 @@ class MEF():
             cx, cy = cent[0] * 1000, cent[1] * 1000
             self.ax.plot(cx + r_mm * np.cos(theta), cy + r_mm * np.sin(theta), '--', color='gray')
 
-        ax_tb1 = self.fig.add_axes((0.20, 0.02, 0.15, 0.04))
-        ax_tb3 = self.fig.add_axes((0.70, 0.02, 0.15, 0.04))
-        self._tb_tita1 = TextBox(ax_tb1, 'Tita 1: ', initial=str(self.beam.tita1))
+        ax_tb3 = self.fig.add_axes((0.20, 0.02, 0.15, 0.04))
+        ax_tb1 = self.fig.add_axes((0.625, 0.02, 0.15, 0.04))
         self._tb_tita3 = TextBox(ax_tb3, 'Tita 3: ', initial=str(self.beam.tita3))
-        self._tb_tita1.on_submit(self._set_tita1)
+        self._tb_tita1 = TextBox(ax_tb1, 'Tita 1: ', initial=str(self.beam.tita1))
         self._tb_tita3.on_submit(self._set_tita3)
+        self._tb_tita1.on_submit(self._set_tita1)
 
-        ax_btn = self.fig.add_axes((0.44, 0.02, 0.12, 0.04))
-        self._btn = Button(ax_btn, 'Telecharger forces')
-        self._btn.on_clicked(self._on_button_click)
+        ax_btn1 = self.fig.add_axes((0.44, 0.02, 0.10, 0.04))
+        self._btn1 = Button(ax_btn1, 'Telecharger forces')
+        self._btn1.on_clicked(self._on_button1_click)
+        
+        ax_btn2 = self.fig.add_axes((0.0125, 0.90, 0.10, 0.04))
+        self._btn2 = Button(ax_btn2, 'Reconection EMIO')
+        self._btn2.on_clicked(self._on_button2_click)
 
-    def _on_button_click(self, event):
+        ax_btn3 = self.fig.add_axes((0.0125, 0.85, 0.10, 0.04))
+        self._btn3 = Button(ax_btn3, 'Actualiser point')
+        self._btn3.on_clicked(self._on_button3_click)
+        
+        conn_label_cam = "Camera connectée" if self.camera_connected else "Camera déconnectée"
+        conn_color_cam = "green" if self.camera_connected else "red"
+        self._conn_text_cam = self.fig.text(0.0625, 0.945, conn_label_cam, ha='center', va='bottom', color=conn_color_cam, fontsize=12)
+
+        conn_label_mot = "Moteurs connectés" if self.motors_connected else "Moteurs déconnectés"
+        conn_color_mot = "green" if self.motors_connected else "red"
+        self._conn_text_mot = self.fig.text(0.0625, 0.97, conn_label_mot, ha='center', va='bottom', color=conn_color_mot, fontsize=12)
+
+    def _on_button1_click(self, event):
         with open("efforts.json", "r") as file:
             data = json.load(file)
 
@@ -79,33 +112,36 @@ class MEF():
 
         self.solve("force", liste_ddl_bloque, F=F, live_plot=True)
         
+    def _on_button2_click(self, event):
+        if not self.camera_connected:
+            self.camera_connected = self.camera.open()
+            if self.camera_connected:
+                print("Connexion avec EMIO réussie")
+                self._conn_text_cam.set_text("Camera connectée")
+                self._conn_text_cam.set_color("green")
+            else:
+                print("Echec de reconnexion avec EMIO")
+                self._conn_text_cam.set_text("Camera déconnectée")
+                self._conn_text_cam.set_color("red")
+        
+        if not self.motors_connected:
+            self.motors_connected = self.motors.open()
+            if self.motors_connected:
+                print("Connexion avec EMIO réussie")
+                self._conn_text_mot.set_text("Moteurs connectés")
+                self._conn_text_mot.set_color("green")
+            else:
+                print("Echec de reconnexion avec EMIO")
+                self._conn_text_mot.set_text("Moteurs déconnectés")
+                self._conn_text_mot.set_color("red")
 
-    def _set_tita1(self, text):
-        try:
-            self.beam.tita1 = np.deg2rad(float(text))
-            
-            pos_enc1 = get_pos_encastrement1(self.beam.tita1)
-
-            pos_direc_enc1 = np.hstack((pos_enc1, -self.beam.tita1))
-
-            noeuds_contraintes = {
-                "1": 0,
-                "2": 10,
-                "3": 20
-            }
-
-            ddl_bloque = {
-                "1": {"x": True, "y": True, "tita": True},
-                "2": {"x": False, "y": False,  "tita": True},
-                "3": {"x": True, "y": True,  "tita": True}
-            }
-
-            liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
-
-            self.solve("deplacement", liste_ddl_bloque, pos_direc_enc1, 0, live_plot=True)
-
-        except ValueError:
-            pass
+    def _on_button3_click(self, event):
+        if self.camera_connected:
+            self.camera.update()
+            point_vert = self.get_position_point_vert()
+            if point_vert is not None:
+                self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
+                self.fig.canvas.draw_idle()
 
     def _set_tita3(self, text):
         try:
@@ -113,7 +149,7 @@ class MEF():
             
             pos_enc3 = get_pos_encastrement3(self.beam.tita3)
 
-            pos_direc_enc3 = np.hstack((pos_enc3, np.pi + self.beam.tita3))
+            pos_direc_enc3 = np.hstack((pos_enc3, -self.beam.tita3))
 
             noeuds_contraintes = {
                 "1": 0,
@@ -129,7 +165,51 @@ class MEF():
 
             liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
 
-            self.solve("deplacement", liste_ddl_bloque, pos_direc_enc3, 20, live_plot=True)
+            if self.motors_connected:
+                self.motors.angles = [0, -self.beam.tita1, 0, -self.beam.tita3]
+
+            self.solve("deplacement", liste_ddl_bloque, pos_direc_enc3, 0, live_plot=True)
+
+            point_vert = self.get_position_point_vert()
+            if point_vert is not None:
+                self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
+                self.fig.canvas.draw_idle()
+
+        except ValueError:
+            pass
+
+    def _set_tita1(self, text):
+        try:
+            self.beam.tita1 = np.deg2rad(float(text))
+            
+            pos_enc1 = get_pos_encastrement1(self.beam.tita1)
+
+            pos_direc_enc1 = np.hstack((pos_enc1, np.pi + self.beam.tita1))
+
+            noeuds_contraintes = {
+                "1": 0,
+                "2": 10,
+                "3": 20
+            }
+
+            ddl_bloque = {
+                "1": {"x": True, "y": True, "tita": True},
+                "2": {"x": False, "y": False,  "tita": True},
+                "3": {"x": True, "y": True,  "tita": True}
+            }
+
+            liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+
+            if self.motors_connected:
+                self.motors.angles = [0, -self.beam.tita1, 0, -self.beam.tita3]
+
+            self.solve("deplacement", liste_ddl_bloque, pos_direc_enc1, 20, live_plot=True)
+
+            point_vert = self.get_position_point_vert()
+            if point_vert is not None:
+                self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
+                self.fig.canvas.draw_idle()
+
         except ValueError:
             pass
 
@@ -301,10 +381,10 @@ class MEF():
         # Noued qui bougera de forme arbitraire
         noeud_bouge = 20
 
-        self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT2, noeud_bouge, live_plot=live_plot)
+        self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT1, noeud_bouge, live_plot=live_plot)
 
         # FAIT EN 2 ETAPES POUR EVITER PROBLEMES DE CONVERGENCE
-        # MODELE DIVERGE SI ON BLOQUE LE DEPLACEMENT SUR AXIS Y INITIALEMENT
+        # LE MODÈLE DIVERGE SI ON BLOQUE LE DEPLACEMENT SUR AXIS X ET Y INITIALEMENT
         ddl_bloque = {
             "1": {"x": True, "y": True, "tita": True},
             "2": {"x": True, "y": True,  "tita": True}
@@ -312,8 +392,10 @@ class MEF():
 
         liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
 
-        self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT2, noeud_bouge, live_plot=live_plot)
+        self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT1, noeud_bouge, live_plot=live_plot)
 
+        if self.motors_connected:
+            self.motors.angles = [0, 0, 0, 0]
 
     def ajouter_liason_bras(self, live_plot=False):
         noeuds_contraintes = {
@@ -343,15 +425,20 @@ class MEF():
     def condition_initiale(self, live_plot=False):
         
         self.beam.configuration_neutre(gamma=np.deg2rad(90),
-                                       x0=constants.POS_ENCASTREMENT1[0],
-                                       y0=constants.POS_ENCASTREMENT1[1])
+                                       x0=constants.POS_ENCASTREMENT2[0],
+                                       y0=constants.POS_ENCASTREMENT2[1])
         
         self.position_u(live_plot=live_plot)
 
         self.ajouter_liason_bras(live_plot=live_plot)
 
-        self.NINC = 200
-        self.draw_every = 10
+        point_vert = self.get_position_point_vert()
+        if point_vert is not None:
+            self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
+            self.fig.canvas.draw_idle()
+
+        self.NINC = 150
+        self.draw_every = 15
 
     def solve(self, type, ddl_bloques, U=np.zeros(1), noeud=0, F=np.zeros(1), live_plot=False):
         if type == "force":
@@ -381,6 +468,14 @@ class MEF():
             vector[3*i+2] = data[node_name]["M"]
 
         return vector
+    
+    def get_position_point_vert(self):
+        if self.camera_connected:
+            self.camera.update()
+
+            return np.array(self.camera.trackers_pos)
+        
+        return None
 
 def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_nodo=3):
     mapa_gdl = {

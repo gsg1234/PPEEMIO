@@ -1,28 +1,39 @@
-import json
+from emioapi import EmioMotors, EmioCamera
+import time
 import numpy as np
+import random as rnd
 
 np.set_printoptions(suppress=True,linewidth=None)
 
-def parse_efforts(data):
-    num_nodes = 21
-    vector = np.zeros(3 * num_nodes)
+camera = EmioCamera(track_markers=True)
+camera_connected = camera.open()
 
-    for i in range(num_nodes):
-        node_name = f"Node{i}"
+motors = EmioMotors()
+motors_connected = motors.open()
 
-        vector[3*i] = data[node_name]["Fx"]
-        vector[3*i+1] = data[node_name]["Fy"]
-        vector[3*i+2] = data[node_name]["M"]
+"""
+if motors_connected:
+    while True:
+        # Update motor angles
+        angulos = [0, rnd.uniform(-np.pi/2, np.pi/2), 0, rnd.uniform(-np.pi/2, np.pi/2)]
+        print("Setting motor angles to:", angulos)
+        motors.angles = angulos
+        time.sleep(1)
+else:
+    print("Failed to connect to the motors.")
 
-    return vector
+"""
+if camera_connected:
+    if camera.open():
+        while camera.is_running:
+            # Update camera frames and tracking
+            camera.update()
 
+            # Access tracker positions
+            positions = np.array(camera.trackers_pos)
+            print("Tracker positions shape:", positions.shape)  # Print the shape of the positions array
+            print(f"x = {positions[0, 0]:.2f} mm, y = {positions[0, 1]:.2f} mm")
 
-# Ejemplo de uso leyendo desde un archivo JSON
-if __name__ == "__main__":
-    with open("efforts.json", "r") as file:
-        data = json.load(file)
-
-    result_vector = parse_efforts(data)
-
-    print(result_vector)
-    print("Longitud del vector:", len(result_vector))
+            time.sleep(1)
+else:
+    print("Failed to connect to the camera.")
