@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import TextBox, Button
 import json
+import threading
 from emioapi import EmioAPI, EmioMotors, EmioCamera
 
 import constants
@@ -24,8 +25,12 @@ class MEF():
         self.motors = EmioMotors()
         self.motors_connected = self.motors.open()
 
+        self._tracker_pos = None
+        self._tracker_lock = threading.Lock()
+
         if self.camera_connected:
             print("Camera connectée")
+            self._start_camera_thread()
         else:
             print("Echec de connexion avec camera")
 
@@ -43,9 +48,9 @@ class MEF():
         self.ax.set_xlabel("Position X [mm]")
         self.ax.set_ylabel("Position Y [mm]")
         self.ax.grid(True)
-        #self.ax.set_xlim(-170, 170)
-        #self.ax.set_ylim(-175, 30)
-        self.ax.set_aspect('equal', adjustable='datalim')
+        self.ax.set_xlim(-170, 170)
+        self.ax.set_ylim(-175, 30)
+        #self.ax.set_aspect('equal', adjustable='datalim')
 
     def _init_figure(self):
         self.fig = plt.figure()
@@ -118,6 +123,7 @@ class MEF():
                 print("Connexion avec EMIO réussie")
                 self._conn_text_cam.set_text("Camera connectée")
                 self._conn_text_cam.set_color("green")
+                self._start_camera_thread()
             else:
                 print("Echec de reconnexion avec EMIO")
                 self._conn_text_cam.set_text("Camera déconnectée")
@@ -235,6 +241,10 @@ class MEF():
                                           scale_units='xy', scale=1, width=0.006, clim=(0, 1))
             self.fig.colorbar(self._quiver, cax=self._cbar_ax, label='|F| [N]')
 
+        point_vert = self.get_position_point_vert()
+        if point_vert is not None:
+            self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
+
         self.ax.relim()
         self.ax.autoscale_view()
         plt.pause(0.001)
@@ -303,6 +313,7 @@ class MEF():
             # Apres NR Un+1 = U_cur
             self.beam.u = u_cur.copy()
             self.beam.evol_u[n, :] = u_cur.copy()
+
             if live_plot and n % self.draw_every == 0:
                 self._draw()
 
@@ -356,6 +367,7 @@ class MEF():
 
             self.beam.u = u_cur.copy()
             self.beam.evol_u[n, :] = self.beam.u.copy()
+
             if live_plot and n % self.draw_every == 0:
                 self._draw()
 
@@ -425,8 +437,6 @@ class MEF():
         
         self.position_u(live_plot=live_plot)
         
-        #self.ajouter_liason_bras(live_plot=live_plot)
-        
         point_vert = self.get_position_point_vert()
         if point_vert is not None:
             self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
@@ -464,13 +474,25 @@ class MEF():
 
         return vector
     
-    def get_position_point_vert(self):
-        if self.camera_connected:
-            self.camera.update()
+    def _start_camera_thread(self):
+        def _poll():
+            while self.camera_connected:
+                try:
+                    self.camera.update()
+                    pos = np.array(self.camera.trackers_pos)
+                    with self._tracker_lock:
+                        self._tracker_pos = pos
+                except Exception:
+                    pass
 
-            return np.array(self.camera.trackers_pos)
-        
-        return None
+        t = threading.Thread(target=_poll, daemon=True)
+        t.start()
+
+    def get_position_point_vert(self):
+        if not self.camera_connected:
+            return None
+        with self._tracker_lock:
+            return self._tracker_pos.copy() if self._tracker_pos is not None else None
 
 def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_nodo=3):
     mapa_gdl = {
@@ -490,12 +512,3 @@ def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_
                 gdl_bloqueados.append(gdl_global)
 
     return gdl_bloqueados
-
-if __name__ == "__main__":
-    solver = MEF(large=0.01, haut=0.005, L0t=0.415, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=150, tol=0.01, draw_every=200)
-    solver.condition_initiale(live_plot=True)
-    
-    #solver.montrer_solution()
-
-    plt.ioff()
-    plt.show()
