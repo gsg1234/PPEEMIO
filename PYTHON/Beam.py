@@ -17,58 +17,58 @@ class Beam():
         self.tita3 = 0.0
 
         # Parametres du MEF
-        self.N_ELEM = N_ELEM
-        self.N_NODES = N_ELEM + 1
+        self.N_ELEM = N_ELEM-1
+        self.N_NODES = self.N_ELEM + 1
         self.NINC = NINC
-        self.Beta_0 = np.zeros(N_ELEM)
-        self.Beta = np.zeros(N_ELEM)
+        self.Beta_0 = np.zeros(self.N_ELEM)
+        self.Beta = np.zeros(self.N_ELEM)
         self.F = np.zeros(3*self.N_NODES)                       # F = [Fx1, Fy1, M1, Fx2, Fy2, M2,...]
         self.dF = np.zeros(3*self.N_NODES)
-        self.ql = np.zeros(3*N_ELEM)                            # ql = [N, M1, M2] sur chaque element
+        self.ql = np.zeros(3*self.N_ELEM)                            # ql = [N, M1, M2] sur chaque element
         self.q = np.zeros(3*self.N_NODES)                       # Efforts internes globales sur chaque node qi = BT * qli
         self.u = np.zeros(3*self.N_NODES)
         self.evol_u = np.zeros((NINC, 3*self.N_NODES))  
         self.dU = np.zeros(3*self.N_NODES)
         self.dUk = np.zeros(3*self.N_NODES)
-        self.L0 = np.ones(N_ELEM) * (self.L0t / N_ELEM)         # Longueur initiale de chaque element
-        self.L = np.ones(N_ELEM) * (self.L0t / N_ELEM)          # Longueur apres deformation de chaque element
-        self.z = np.zeros((6, N_ELEM))
-        self.r = np.zeros((6, N_ELEM))
-        self.zz = np.zeros((6, 6, N_ELEM))
-        self.zr = np.zeros((6, 6, N_ELEM))
-        self.rz = np.zeros((6, 6, N_ELEM))
+        self.L0 = np.ones(self.N_ELEM) * (self.L0t / self.N_ELEM)         # Longueur initiale de chaque element
+        self.L = np.ones(self.N_ELEM) * (self.L0t / self.N_ELEM)          # Longueur apres deformation de chaque element
+        self.z = np.zeros((6, self.N_ELEM))
+        self.r = np.zeros((6, self.N_ELEM))
+        self.zz = np.zeros((6, 6, self.N_ELEM))
+        self.zr = np.zeros((6, 6, self.N_ELEM))
+        self.rz = np.zeros((6, 6, self.N_ELEM))
 
         # 3x6xN_ELEM
-        self.B = np.zeros((3, 6, N_ELEM))
+        self.B = np.zeros((3, 6, self.N_ELEM))
         self.B[1, 2, :] = 1.0
         self.B[2, 5, :] = 1.0
         
         # 3x3 Meme pour tous les elements parce que la section est constant
         self.C1 = np.array([[1,      0     ,      0     ],
                             [0, 4*self.radius**2, 2*self.radius**2],
-                            [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG1 * self.AREA * (N_ELEM / L0t)
+                            [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG1 * self.AREA * (self.N_ELEM / self.L0t)
         
         # Simuler elements 9 et 10 plus rigides
         self.C2 = np.array([[1,      0     ,      0     ],
                             [0, 4*self.radius**2, 2*self.radius**2],
-                            [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG2 * self.AREA * (N_ELEM / L0t)
+                            [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG2 * self.AREA * (self.N_ELEM / self.L0t)
         
-        self.C_all = np.broadcast_to(self.C1[:, :, np.newaxis], (3, 3, N_ELEM)).copy()
+        self.C_all = np.broadcast_to(self.C1[:, :, np.newaxis], (3, 3, self.N_ELEM)).copy()
         self.C_all[:, :, 9] = self.C2
-        self.C_all[:, :, 10] = self.C2
+        #self.C_all[:, :, 10] = self.C2
 
-        self.YOUNG_elem = np.full(N_ELEM, self.YOUNG1)
+        self.YOUNG_elem = np.full(self.N_ELEM, self.YOUNG1)
         self.YOUNG_elem[9] = self.YOUNG2
-        self.YOUNG_elem[10] = self.YOUNG2
+        #self.YOUNG_elem[10] = self.YOUNG2
 
         # 3(N_ELEM+1)x3(N_ELEM+1) Variationally consistent tangent stiffness matrix
         self.K = np.zeros((3*self.N_NODES, 3*self.N_NODES))
 
         # 6x6xN_ELEM Standard transformed global tangent stiffness matrix
-        self.kt = np.zeros((6, 6, N_ELEM))
+        self.kt = np.zeros((6, 6, self.N_ELEM))
 
         # 6x6xN_ELEM kt_sigma
-        self.k_sigma = np.zeros((6, 6, N_ELEM))
+        self.k_sigma = np.zeros((6, 6, self.N_ELEM))
 
     def forces_externes(self):
         # POID DISTRIBUÉ DE LA POUTRE
@@ -93,9 +93,18 @@ class Beam():
 
     def configuration_neutre(self, gamma, x0, y0):        
         #VIGA RECTA
+        """
         self.u[::3] = np.linspace(x0, x0+self.L0t*np.cos(gamma), self.N_NODES)
         self.u[1::3] = np.linspace(y0, y0-self.L0t*np.sin(gamma), self.N_NODES)
         self.u[2::3] = 0
+        """
+        tempX = np.linspace(x0, x0+self.L0t*np.cos(gamma), self.N_NODES+1)
+        tempY = np.linspace(y0, y0-self.L0t*np.sin(gamma), self.N_NODES+1)
+        tempT = np.zeros(self.N_NODES+1)
+
+        self.u[::3] = np.delete(tempX, 10)
+        self.u[1::3] = np.delete(tempY, 10)
+        self.u[2::3] = np.delete(tempT, 10)
 
         # Construction beta en function de la configuration initiale
         x1 = self.u[0:-3:3]
@@ -108,8 +117,8 @@ class Beam():
         self.cos = np.cos(self.Beta_0)
         self.sin = np.sin(self.Beta_0)
 
-        self.z = np.array([self.sin, -self.cos, np.zeros(self.N_ELEM), -self.sin, self.cos, np.zeros(self.N_ELEM)])
-        self.r = np.array([self.cos, self.sin, np.zeros(self.N_ELEM), -self.cos, -self.sin, np.zeros(self.N_ELEM)])
+        self.z = np.array([self.sin, -self.cos, np.zeros(self.N_ELEM), -self.sin,  self.cos, np.zeros(self.N_ELEM)])
+        self.r = np.array([self.cos,  self.sin, np.zeros(self.N_ELEM), -self.cos, -self.sin, np.zeros(self.N_ELEM)])
 
     def actualiser_ks(self):
         sin_L = self.sin/self.L

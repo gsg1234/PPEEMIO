@@ -43,8 +43,9 @@ class MEF():
         self.ax.set_xlabel("Position X [mm]")
         self.ax.set_ylabel("Position Y [mm]")
         self.ax.grid(True)
-        self.ax.set_xlim(-170, 170)
-        self.ax.set_ylim(-175, 30)
+        #self.ax.set_xlim(-170, 170)
+        #self.ax.set_ylim(-175, 30)
+        self.ax.set_aspect('equal', adjustable='datalim')
 
     def _init_figure(self):
         self.fig = plt.figure()
@@ -98,14 +99,12 @@ class MEF():
 
         noeuds_contraintes = {
             "1": 0,
-            "2": 10,
-            "3": 20
+            "2": 19
         }
 
         ddl_bloque = {
             "1": {"x": True, "y": True, "tita": True},
-            "2": {"x": False, "y": False,  "tita": True},
-            "3": {"x": True, "y": True,  "tita": True}
+            "2": {"x": True, "y": True,  "tita": True}
         }
 
         liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
@@ -153,14 +152,12 @@ class MEF():
 
             noeuds_contraintes = {
                 "1": 0,
-                "2": 10,
-                "3": 20
+                "2": 19
             }
 
             ddl_bloque = {
                 "1": {"x": True, "y": True, "tita": True},
-                "2": {"x": False, "y": False,  "tita": True},
-                "3": {"x": True, "y": True,  "tita": True}
+                "2": {"x": True, "y": True,  "tita": True}
             }
 
             liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
@@ -188,14 +185,12 @@ class MEF():
 
             noeuds_contraintes = {
                 "1": 0,
-                "2": 10,
-                "3": 20
+                "2": 19
             }
 
             ddl_bloque = {
                 "1": {"x": True, "y": True, "tita": True},
-                "2": {"x": False, "y": False,  "tita": True},
-                "3": {"x": True, "y": True,  "tita": True}
+                "2": {"x": True, "y": True,  "tita": True}
             }
 
             liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
@@ -203,7 +198,7 @@ class MEF():
             if self.motors_connected:
                 self.motors.angles = [0, -self.beam.tita1, 0, -self.beam.tita3]
 
-            self.solve("deplacement", liste_ddl_bloque, pos_direc_enc1, 20, live_plot=True)
+            self.solve("deplacement", liste_ddl_bloque, pos_direc_enc1, 19, live_plot=True)
 
             point_vert = self.get_position_point_vert()
             if point_vert is not None:
@@ -367,7 +362,7 @@ class MEF():
     def position_u(self, live_plot=False):
         noeuds_contraintes = {
             "1": 0,
-            "2": 20
+            "2": 19
         }
 
         ddl_bloque = {
@@ -379,7 +374,7 @@ class MEF():
         liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
 
         # Noued qui bougera de forme arbitraire
-        noeud_bouge = 20
+        noeud_bouge = 19
 
         self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT1, noeud_bouge, live_plot=live_plot)
 
@@ -429,14 +424,14 @@ class MEF():
                                        y0=constants.POS_ENCASTREMENT2[1])
         
         self.position_u(live_plot=live_plot)
-
-        self.ajouter_liason_bras(live_plot=live_plot)
-
+        
+        #self.ajouter_liason_bras(live_plot=live_plot)
+        
         point_vert = self.get_position_point_vert()
         if point_vert is not None:
             self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
             self.fig.canvas.draw_idle()
-
+        
         self.NINC = 150
         self.draw_every = 15
 
@@ -497,29 +492,10 @@ def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_
     return gdl_bloqueados
 
 if __name__ == "__main__":
-    solver = MEF(large=0.01, haut=0.005, L0t=0.4, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=150, tol=0.01, draw_every=200)
+    solver = MEF(large=0.01, haut=0.005, L0t=0.415, YOUNG=5.64e6, N_ELEM=20, NINC=3000, maxiter=150, tol=0.01, draw_every=200)
     solver.condition_initiale(live_plot=True)
     
-    F = np.zeros(3*solver.beam.N_NODES)
-
-    noeuds_contraintes = {
-            "1": 0,
-            "2": 10,
-            "3": 20
-    }
-
-    ddl_bloque = {
-        "1": {"x": True, "y": True, "tita": True},
-        "2": {"x": False, "y": False,  "tita": True},
-        "3": {"x": True, "y": True,  "tita": True}
-    }
-
-    liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
-
-    F[3*7] = 2
-    F[3*7+1] = 0
-
-    solver.solve("force", liste_ddl_bloque, F=F, live_plot=True)
+    #solver.montrer_solution()
 
     plt.ioff()
     plt.show()
