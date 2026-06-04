@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import TextBox, Button
 import json
 import threading
-from emioapi import EmioAPI, EmioMotors, EmioCamera
+from emioapi import EmioMotors, EmioCamera
 
 import constants
 from Beam import Beam
@@ -242,7 +242,7 @@ class MEF():
             self.fig.colorbar(self._quiver, cax=self._cbar_ax, label='|F| [N]')
 
         point_vert = self.get_position_point_vert()
-        if point_vert is not None:
+        if len(point_vert) > 0:
             self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
 
         self.ax.relim()
@@ -438,7 +438,7 @@ class MEF():
         self.position_u(live_plot=live_plot)
         
         point_vert = self.get_position_point_vert()
-        if point_vert is not None:
+        if len(point_vert) > 0:
             self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
             self.fig.canvas.draw_idle()
         
@@ -490,9 +490,9 @@ class MEF():
 
     def get_position_point_vert(self):
         if not self.camera_connected:
-            return None
+            return []
         with self._tracker_lock:
-            return self._tracker_pos.copy() if self._tracker_pos is not None else None
+            return self._tracker_pos.copy() if self._tracker_pos is not None else []
 
 def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_nodo=3):
     mapa_gdl = {
