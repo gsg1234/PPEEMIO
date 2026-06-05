@@ -17,7 +17,7 @@ class Beam():
         self.tita3 = 0.0
 
         # Parametres du MEF
-        self.N_ELEM = N_ELEM-1
+        self.N_ELEM = N_ELEM
         self.N_NODES = self.N_ELEM + 1
         self.NINC = NINC
         self.Beta_0 = np.zeros(self.N_ELEM)
@@ -94,17 +94,18 @@ class Beam():
     def configuration_neutre(self, gamma, x0, y0):        
         #VIGA RECTA
         """
-        self.u[::3] = np.linspace(x0, x0+self.L0t*np.cos(gamma), self.N_NODES)
-        self.u[1::3] = np.linspace(y0, y0-self.L0t*np.sin(gamma), self.N_NODES)
-        self.u[2::3] = 0
+            part1 va depuis l'encastrement jusqu'au debut de liason rigide
+            part2 va depuis la fin de la partie rigide jusqu'au dernier noeud
         """
-        tempX = np.linspace(x0, x0+self.L0t*np.cos(gamma), self.N_NODES+1)
-        tempY = np.linspace(y0, y0-self.L0t*np.sin(gamma), self.N_NODES+1)
-        tempT = np.zeros(self.N_NODES+1)
+        part1X = np.linspace(x0, x0+0.5*(self.L0t-0.04)*np.cos(gamma), int(self.N_NODES/2))
+        part1Y = np.linspace(y0, y0-0.5*(self.L0t-0.04)*np.sin(gamma), int(self.N_NODES/2))
+        
+        part2X = np.linspace(x0+0.5*(self.L0t+0.04)*np.cos(gamma), x0+self.L0t*np.cos(gamma), int(self.N_NODES/2))
+        part2Y = np.linspace(y0-0.5*(self.L0t+0.04)*np.sin(gamma), y0-self.L0t*np.sin(gamma), int(self.N_NODES/2))
 
-        self.u[::3] = np.delete(tempX, 10)
-        self.u[1::3] = np.delete(tempY, 10)
-        self.u[2::3] = np.delete(tempT, 10)
+        self.u[::3] = np.concatenate((part1X, part2X))
+        self.u[1::3] = np.concatenate((part1Y, part2Y))
+        self.u[2::3] = np.zeros(self.N_NODES)
 
         # Construction beta en function de la configuration initiale
         x1 = self.u[0:-3:3]

@@ -106,7 +106,7 @@ class MEF():
 
         noeuds_contraintes = {
             "1": 0,
-            "2": 19
+            "2": -1
         }
 
         ddl_bloque = {
@@ -146,7 +146,7 @@ class MEF():
         if self.camera_connected:
             self.camera.update()
             point_vert = self.get_position_point_vert()
-            if point_vert is not None:
+            if len(point_vert) > 0:
                 self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
                 self._point_vert.set_visible(True)
                 self.fig.canvas.draw_idle()
@@ -161,7 +161,7 @@ class MEF():
 
             noeuds_contraintes = {
                 "1": 0,
-                "2": 19
+                "2": -1
             }
 
             ddl_bloque = {
@@ -177,7 +177,7 @@ class MEF():
             self.solve("deplacement", liste_ddl_bloque, pos_direc_enc3, 0, live_plot=True)
 
             point_vert = self.get_position_point_vert()
-            if point_vert is not None:
+            if len(point_vert) > 0:
                 self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
                 self._point_vert.set_visible(True)
                 self.fig.canvas.draw_idle()
@@ -195,7 +195,7 @@ class MEF():
 
             noeuds_contraintes = {
                 "1": 0,
-                "2": 19
+                "2": -1
             }
 
             ddl_bloque = {
@@ -211,7 +211,7 @@ class MEF():
             self.solve("deplacement", liste_ddl_bloque, pos_direc_enc1, 19, live_plot=True)
 
             point_vert = self.get_position_point_vert()
-            if point_vert is not None:
+            if len(point_vert) > 0:
                 self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
                 self._point_vert.set_visible(True)
                 self.fig.canvas.draw_idle()
@@ -331,6 +331,7 @@ class MEF():
         ddl = np.delete(np.arange(3*self.beam.N_NODES), ddl_bloque, axis=0)
 
         for n in range(self.NINC):
+            print(f"Increment {n+1}/{self.NINC}")
             self.beam.u[3*noeud:3*noeud+3] += du
             tita, ul = self.beam.actualiser_conf(self.beam.u)
             self.beam.actualiser_iforces(tita=tita, ul=ul)
@@ -380,7 +381,7 @@ class MEF():
     def position_u(self, live_plot=False):
         noeuds_contraintes = {
             "1": 0,
-            "2": 19
+            "2": -1
         }
 
         ddl_bloque = {
@@ -392,7 +393,7 @@ class MEF():
         liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
 
         # Noued qui bougera de forme arbitraire
-        noeud_bouge = 19
+        noeud_bouge = self.beam.N_NODES - 1
 
         self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT1, noeud_bouge, live_plot=live_plot)
 
@@ -409,32 +410,7 @@ class MEF():
 
         if self.motors_connected:
             self.motors.angles = [0, 0, 0, 0]
-
-    def ajouter_liason_bras(self, live_plot=False):
-        noeuds_contraintes = {
-            "1": 0,
-            "2": 9,
-            "3": 10,
-            "4": 11,
-            "5": 20
-        }
-
-        ddl_bloque = {
-            "1": {"x": True, "y": True, "tita": True},
-            "2": {"x": True, "y": True,  "tita": False},
-            "3": {"x": True, "y": True,  "tita": True},
-            "4": {"x": True, "y": True,  "tita": False},
-            "5": {"x": True, "y": True,  "tita": True}
-        }
-        # Liste de ddl contraintes par conditions de countour
-        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
-
-        # Bouger noeud centrale à hauteur de noeud 9
-        u_noeud = self.beam.u[3*10:3*10+3]
-        u_noeud[1] = self.beam.u[3*9+1]
-
-        self.solve("deplacement", liste_ddl_bloque, u_noeud, 10, live_plot=live_plot)
-
+            
     def condition_initiale(self, live_plot=False):
         
         self.beam.configuration_neutre(gamma=np.deg2rad(90),
