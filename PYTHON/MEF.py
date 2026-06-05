@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from matplotlib.widgets import TextBox, Button
 import json
 import threading
@@ -60,7 +61,8 @@ class MEF():
         self._cbar_ax = self.fig.add_subplot(gs[1])
         self._setup_axes()
         self.beam_line, = self.ax.plot([], [], '-o', color='steelblue', markersize=3)
-        self._point_vert, = self.ax.plot([], [], 'o', color='green', markersize=12, zorder=5)
+        self._point_vert = mpatches.Circle((0, 0), radius=2.5, color='green', zorder=5, visible=False)
+        self.ax.add_patch(self._point_vert)
         self._quiver = None
 
         theta = np.linspace(0, 2 * np.pi, 300)
@@ -145,7 +147,8 @@ class MEF():
             self.camera.update()
             point_vert = self.get_position_point_vert()
             if point_vert is not None:
-                self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
+                self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
+                self._point_vert.set_visible(True)
                 self.fig.canvas.draw_idle()
 
     def _set_tita3(self, text):
@@ -175,7 +178,8 @@ class MEF():
 
             point_vert = self.get_position_point_vert()
             if point_vert is not None:
-                self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
+                self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
+                self._point_vert.set_visible(True)
                 self.fig.canvas.draw_idle()
 
         except ValueError:
@@ -208,7 +212,8 @@ class MEF():
 
             point_vert = self.get_position_point_vert()
             if point_vert is not None:
-                self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
+                self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
+                self._point_vert.set_visible(True)
                 self.fig.canvas.draw_idle()
 
         except ValueError:
@@ -243,7 +248,8 @@ class MEF():
 
         point_vert = self.get_position_point_vert()
         if len(point_vert) > 0:
-            self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
+            self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
+            self._point_vert.set_visible(True)
 
         self.ax.relim()
         self.ax.autoscale_view()
@@ -439,7 +445,8 @@ class MEF():
         
         point_vert = self.get_position_point_vert()
         if len(point_vert) > 0:
-            self._point_vert.set_data([point_vert[0, 0]], [point_vert[0, 1]])
+            self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
+            self._point_vert.set_visible(True)
             self.fig.canvas.draw_idle()
         
         self.NINC = 150
