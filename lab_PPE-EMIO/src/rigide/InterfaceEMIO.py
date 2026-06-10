@@ -50,11 +50,23 @@ class EMIOInterface:
         self.verrou_calcul = False
         
         # --- Variables de contrôle ---
-        self.t1_var = tk.DoubleVar(value=0.0)
-        self.t3_var = tk.DoubleVar(value=0.0)
+        # Initial state: th1 and th3 at -45 degrees
+        initial_t1_deg = -45.0
+        initial_t3_deg = -45.0
         
-        self.x_var = tk.DoubleVar(value=0.0)
-        self.y_var = tk.DoubleVar(value=-115.0)
+        self.t1_var = tk.DoubleVar(value=initial_t1_deg)
+        self.t3_var = tk.DoubleVar(value=initial_t3_deg)
+        
+        # Calculate initial x, y from MGD
+        try:
+            initial_t1_rad = initial_t1_deg * np.pi / 180
+            initial_t3_rad = initial_t3_deg * np.pi / 180
+            x, y, _, _ = self.calculer_mgd(initial_t1_rad, initial_t3_rad)
+        except:
+            x, y = 0.0, -115.0
+        
+        self.x_var = tk.DoubleVar(value=round(x))
+        self.y_var = tk.DoubleVar(value=round(y))
         
         # --- Variables pour l'état valide précédent ---
         self.last_valid_t1 = self.t1_var.get()
@@ -95,7 +107,7 @@ class EMIOInterface:
         ent_t1.pack(side=tk.RIGHT)
         ent_t1.bind('<Return>', self.on_theta_change)
         ent_t1.bind('<FocusOut>', self.on_theta_change)
-        ttk.Scale(frame_art, from_=-90, to=0, variable=self.t1_var, command=self.on_t1_slider_change).pack(fill=tk.X, pady=(0, 10))
+        ttk.Scale(frame_art, from_=-90, to=-45, variable=self.t1_var, command=self.on_t1_slider_change).pack(fill=tk.X, pady=(0, 10))
         
         # Theta 3
         row_t3 = ttk.Frame(frame_art)
@@ -105,7 +117,7 @@ class EMIOInterface:
         ent_t3.pack(side=tk.RIGHT)
         ent_t3.bind('<Return>', self.on_theta_change)
         ent_t3.bind('<FocusOut>', self.on_theta_change)
-        ttk.Scale(frame_art, from_=-90, to=0, variable=self.t3_var, command=self.on_t3_slider_change).pack(fill=tk.X)
+        ttk.Scale(frame_art, from_=-90, to=-45, variable=self.t3_var, command=self.on_t3_slider_change).pack(fill=tk.X)
         
         # --- Position (Espace Opérationnel) ---
         frame_op = ttk.LabelFrame(control_frame, text="Position (Espace Opérationnel)", padding="10")
@@ -147,7 +159,7 @@ class EMIOInterface:
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
         self.fig.patch.set_facecolor('#f0f0f0')
         self.ax.set_xlim([-150, 150])
-        self.ax.set_ylim([-160, 25])
+        self.ax.set_ylim([-170, 25])
         self.ax.set_aspect('equal')
         self.ax.grid(True)
         self.ax.set_xlabel('X(mm)')
@@ -255,7 +267,7 @@ class EMIOInterface:
             return
 
         # 2. Vérification Espace de Travail
-        if verifierSpTr(x, y) == 1:
+        if verifierSpTr(x, y,th1,th3) == 1:
             self.verrou_calcul = True
             
             # Mise à jour de l'interface (Sliders et Textes)
@@ -340,7 +352,7 @@ class EMIOInterface:
             return
         
         # Si le calcul a réussi, on vérifie si la position X, Y est dans l'espace de travail
-        if verifierSpTr(x, y) == 1:
+        if verifierSpTr(x, y,th1,th3) == 1:
             self.verrou_calcul = True
             self.x_var.set(round(x))
             self.y_var.set(round(y))
@@ -371,8 +383,15 @@ class EMIOInterface:
             self.root.after(1, self.force_recul_xy)
             return
         
-        if verifierSpTr(x, y) == 1:
+        try:
             th1, th3, d1, d3 = self.calculer_mgi(x, y)
+        except Exception as e:
+            # Si le MGI plante mathématiquement (position impossible)
+            print(f"Position impossible (Erreur MGI) : {e}")
+            self.root.after(1, self.force_recul_xy)
+            return
+        
+        if verifierSpTr(x, y, th1, th3) == 1:
             self.verrou_calcul = True
             self.t1_var.set(round(th1*180/np.pi, 1)) # Arrondi pour un affichage plus propre
             self.t3_var.set(round(th3*180/np.pi, 1))

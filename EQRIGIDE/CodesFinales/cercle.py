@@ -10,10 +10,10 @@ from graph_temp import graph_temp
 pasos=100
 t = np.linspace(0, 2*np.pi, pasos)
 x0=np.linspace(0,15,pasos)
-y0=np.linspace(-115,-90,pasos)
+y0=np.linspace(-115,-100,pasos)
 
 x_cercle = 15 * np.cos(t)
-y_cercle = 15 * np.sin(t) - 90
+y_cercle = 15 * np.sin(t) - 100
 
 # Combine both trajectories
 x_tray = np.concatenate([x0, x_cercle])

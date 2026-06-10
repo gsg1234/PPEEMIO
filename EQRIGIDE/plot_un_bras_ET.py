@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import CodesFinales.parametres as p
 
-Q1 = np.array([-np.pi/4, 200])
+Q1 = np.array([-np.pi/4, 180])
 plt.ion()
 fig, ax = plt.subplots(figsize=(8, 8))
 fig.canvas.manager.set_window_title('Robot EMIO')
@@ -11,6 +11,8 @@ ax.set_xlim([-150, 350])
 ax.set_ylim([-250, 250])
 ax.set_aspect('equal')
 ax.grid(True)
+ax.set_xlabel('x(mm)')
+ax.set_ylabel('y(mm)')
 
 theta_c = np.linspace(0, 2*np.pi, 100)
 ax.plot(p.L + p.r*np.cos(theta_c), p.r*np.sin(theta_c), 'k:', linewidth=0.5)

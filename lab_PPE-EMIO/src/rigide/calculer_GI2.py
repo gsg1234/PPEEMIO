@@ -6,8 +6,6 @@ from calc_Angles import calculer_Angles
 # Marche avec un valeur ou une liste de valeurs pour x et y
 
 def calculer_GI2(x_val, y_val):
-    if(not verifierSpTr(x_val, y_val)):
-        raise ValueError(f"Il y a des points qui ne sont pas dans l'espace de travail.")
     
     xdif1=x_val-p.L
     xdif3=x_val+p.L
@@ -23,6 +21,8 @@ def calculer_GI2(x_val, y_val):
     
     alpha, th=calculer_Angles(q1, q3)
     res=[x_val, y_val, alpha, th]
-   
+
+    if(not verifierSpTr(x_val, y_val, th1, th3)):
+        raise ValueError(f"Il y a des points qui ne sont pas dans l'espace de travail.")
 
     return q1, q3, res

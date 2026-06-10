@@ -2,10 +2,10 @@ import numpy as np
 import warnings
 import parametres as p
 
-def verifierSpTr(x, y):
+def verifierSpTr(x, y, th1, th3):
     funct1 = np.sqrt((x + p.L)**2 + y**2)
     funct2 = np.sqrt((x - p.L)**2 + y**2)
-    if y>0:
+    if ((y>0) or (th1>-np.pi/4) or (th3>-np.pi/4)):
         warnings.warn("Certains points ne se trouvent pas dans l'espace de travail.")
         return 0
     elif funct1 < p.r_eq_min or funct1 > p.r_eq_max:

@@ -13,8 +13,6 @@ Dans cette laboratoire, nous allons travailler sous las diferences entre deux ro
 #include(assets/labs/lab_PPE-EMIO/sections/rigide.md)
 #include(assets/labs/lab_PPE-EMIO/sections/souple.md)
 
-#include(assets/labs/lab_PPE-EMIO/sections/conclutiones.md)
-
 <!--Python Packages-->
 
 #include(assets/labs/lab_PPE-EMIO/sections/authors.md)

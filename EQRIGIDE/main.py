@@ -1,12 +1,12 @@
 import numpy as np
-import EQRIGIDE.CodesFinales.parametres as p
+import CodesFinales.parametres as p
 from calculer_GD import calculer_GD
-from EQRIGIDE.CodesFinales.calculer_GD2 import calculer_GD2
+from CodesFinales.calculer_GD2 import calculer_GD2
 from calculer_GI import calculer_GI
-from EQRIGIDE.CodesFinales.calculer_GI2 import calculer_GI2
-from EQRIGIDE.CodesFinales.animate import animate
+from CodesFinales.calculer_GI2 import calculer_GI2
+from CodesFinales.animate import animate
 import matplotlib.pyplot as plt
-from verifierSpTr_Trayectoire import verifierSpTr_Trayectoire
+from CodesFinales.verifierSpTr_Trayectoire import verifierSpTr_Trayectoire
 
 if __name__ == '__main__':
     p_cuarto = int(p.pasos/4)

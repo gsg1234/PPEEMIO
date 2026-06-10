@@ -20,8 +20,8 @@ def calculer_GD2(th1, th3):
     q3 = [th3, float(d_values[1])]
     x=float(p.L + d_values[0]*np.sin(th1) + np.sqrt(2)*p.l_len*np.sin(th1)/2 - np.sqrt(2)*p.l_len*np.cos(th1)/2 + p.r*np.cos(th1))
     y= float(-d_values[0]*np.cos(th1) - np.sqrt(2)*p.l_len*np.sin(th1)/2 - np.sqrt(2)*p.l_len*np.cos(th1)/2 + p.r*np.sin(th1))
-    if(not verifierSpTr(x,y)):
-        raise ValueError(f"Le point calculé ({x:.4f}, {y:.4f}) n'est pas dans l'espace de travail.")
+    if(not verifierSpTr(x,y,th1,th3)):
+        raise ValueError(f"Le point calculé ({x:.4f}, {y:.4f}, {th1:.4f}, {th3:.4f}) n'est pas dans l'espace de travail.")
 
     alpha, th=calculer_Angles(q1, q3)
     res=[x, y, alpha, th]
