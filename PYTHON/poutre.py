@@ -74,6 +74,8 @@ class MEF():
         self.B = np.zeros((3, 6, N_ELEM))
         self.B[1, 2, :] = 1.0
         self.B[2, 5, :] = 1.0
+
+        self.actualiser_b()
         
         # 3x3 Meme pour tous les elements parce que la section est constant
         self.C = np.array([[1,      0     ,      0     ],
@@ -113,11 +115,15 @@ class MEF():
         #self.dF[-2] = -4448.0 / self.NINC
         
         
-    def actualiser_ks(self):
+    def actualiser_b(self):
+        """
+            Met à jour la matrice de transformation corotationnelle B (3x6xN_ELEM)
+            à partir des valeurs courantes de cos, sin et L.
+            Appelée depuis actualiser_ks().
+        """
         sin_L = self.sin/self.L
         cos_L = self.cos/self.L
 
-        # Actualiser B avec la nouveau configuration des elements
         self.B[0, 0, :] = -self.cos
         self.B[0, 1, :] = -self.sin
         self.B[0, 3, :] = self.cos
@@ -133,11 +139,13 @@ class MEF():
         self.B[2, 3, :] = sin_L
         self.B[2, 4, :] = -cos_L
 
+    def actualiser_ks(self):
         """
-        self.B = np.array([[       -self.cos,        -self.sin,  np.zeros(N_ELEM),        self.cos,         self.sin, np.zeros(N_ELEM)],
-                           [-self.sin/self.L,  self.cos/self.L,   np.ones(N_ELEM), self.sin/self.L, -self.cos/self.L, np.zeros(N_ELEM)],
-                           [-self.sin/self.L,  self.cos/self.L,  np.zeros(N_ELEM), self.sin/self.L, -self.cos/self.L,  np.ones(N_ELEM)]])
+            Assemble la matrice de rigidité tangente globale K = kt + k_sigma.
+            kt = B^T C B  (rigidité matérielle, via einsum)
+            k_sigma       (rigidité géométrique, fonction de N, M1, M2 courants)
         """
+        self.actualiser_b()
 
         # Clear matrice Ks
         self.K.fill(0)

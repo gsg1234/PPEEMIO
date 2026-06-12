@@ -13,3 +13,7 @@ POS_ENCASTREMENT1 = np.array([X_ENCASTREMENT1, Y_ENCASTREMENT1, np.pi])
 
 CENT_MOT1 = np.array([L, 0])
 CENT_MOT3 = np.array([-L, 0])
+
+L_LIAISON = 0.04
+
+DENSITE_TPU = 1220.0

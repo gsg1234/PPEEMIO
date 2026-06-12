@@ -14,6 +14,10 @@ np.set_printoptions(suppress=True,linewidth=None)
 
 class MEF():
     def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol, draw_every=1):
+        """
+            Initialise le solveur MEF, crée l'instance Beam, connecte la caméra et les
+            moteurs EMIO, et ouvre la fenêtre de visualisation en temps réel.
+        """
         self.NINC = NINC
         self.maxiter = maxiter
         self.tol = tol
@@ -45,6 +49,9 @@ class MEF():
         plt.show(block=False)
 
     def _setup_axes(self):
+        """
+            Configure les labels, la grille et les limites des axes du plot principal.
+        """
         self.ax.set_title("Modèle corotational")
         self.ax.set_xlabel("Position X [mm]")
         self.ax.set_ylabel("Position Y [mm]")
@@ -54,6 +61,11 @@ class MEF():
         #self.ax.set_aspect('equal', adjustable='datalim')
 
     def _init_figure(self):
+        """
+            Crée la figure matplotlib: plot de la poutre, barre de couleur pour |F|,
+            TextBoxes pour tita1/tita3, et boutons Telecharger/Reconnecter/Actualiser.
+            Appelée à l'initialisation et si la fenêtre a été fermée.
+        """
         self.fig = plt.figure()
         self.fig.subplots_adjust(bottom=0.15)
         gs = self.fig.add_gridspec(1, 2, width_ratios=[20, 1], wspace=0.05)
@@ -99,6 +111,10 @@ class MEF():
         self._conn_text_mot = self.fig.text(0.0625, 0.97, conn_label_mot, ha='center', va='bottom', color=conn_color_mot, fontsize=12)
 
     def _on_button1_click(self, event):
+        """
+            Charge les efforts depuis efforts.json et lance un solver pour 
+            incrément de charge avec les deux noeuds extrêmes bloqués en x, y et tita.
+        """
         with open("efforts.json", "r") as file:
             data = json.load(file)
 
@@ -119,6 +135,10 @@ class MEF():
         self.solve("force", liste_ddl_bloque, F=F, live_plot=True)
         
     def _on_button2_click(self, event):
+        """
+            Tente de reconnecter la caméra et les moteurs EMIO si déconnectés.
+            Met à jour les indicateurs de connexion dans la figure.
+        """
         if not self.camera_connected:
             self.camera_connected = self.camera.open()
             if self.camera_connected:
@@ -127,7 +147,7 @@ class MEF():
                 self._conn_text_cam.set_color("green")
                 self._start_camera_thread()
             else:
-                print("Echec de reconnexion avec EMIO")
+                print("Echec de reconnexion avec camera EMIO")
                 self._conn_text_cam.set_text("Camera déconnectée")
                 self._conn_text_cam.set_color("red")
         
@@ -138,11 +158,14 @@ class MEF():
                 self._conn_text_mot.set_text("Moteurs connectés")
                 self._conn_text_mot.set_color("green")
             else:
-                print("Echec de reconnexion avec EMIO")
+                print("Echec de reconnexion avec moteurs EMIO")
                 self._conn_text_mot.set_text("Moteurs déconnectés")
                 self._conn_text_mot.set_color("red")
 
     def _on_button3_click(self, event):
+        """
+            Actualise la position du point vert depuis la caméra et met à jour son affichage.
+        """
         if self.camera_connected:
             self.camera.update()
             point_vert = self.get_position_point_vert()
@@ -152,9 +175,14 @@ class MEF():
                 self.fig.canvas.draw_idle()
 
     def _set_tita3(self, text):
+        """
+            Callback du TextBox tita3. Déplace le noeud 0 vers la position correspondant
+            à l'angle tita3 saisi (en degrés) et commande les moteurs si connectés.
+        """
         try:
             self.beam.tita3 = np.deg2rad(float(text))
             
+            # GD de EMIO jusqu'a bord du moteur
             pos_enc3 = get_pos_encastrement3(self.beam.tita3)
 
             pos_direc_enc3 = np.hstack((pos_enc3, -self.beam.tita3))
@@ -186,9 +214,14 @@ class MEF():
             pass
 
     def _set_tita1(self, text):
+        """
+            Callback du TextBox tita1. Déplace le dernier noeud vers la position correspondant
+            à l'angle tita1 saisi (en degrés) et commande les moteurs si connectés.
+        """
         try:
             self.beam.tita1 = np.deg2rad(float(text))
             
+            # GD du EMIO jusqu'a bord du moteur
             pos_enc1 = get_pos_encastrement1(self.beam.tita1)
 
             pos_direc_enc1 = np.hstack((pos_enc1, np.pi + self.beam.tita1))
@@ -220,6 +253,11 @@ class MEF():
             pass
 
     def _draw(self):
+        """
+            Rafraîchit le plot en temps réel: trace la poutre en mm, affiche les flèches
+            de force (quiver coloré par magnitude) et met à jour la position du point vert.
+            Recrée la figure si la fenêtre a été fermée.
+        """
         if not plt.fignum_exists(self.fig.number):
             self._init_figure()
 
@@ -256,6 +294,11 @@ class MEF():
         plt.pause(0.001)
 
     def solve_increment_charge(self, ddl_bloque, F, live_plot):
+        """
+            Increments de force avec correction Newton-Raphson.
+            Applique dF = (F_cible - F_actuel) / NINC à chaque incrément et itère jusqu'à
+            ||R|| < tol. Quitte si la convergence n'est pas atteinte en maxiter itérations.
+        """
         # Obtension des ddl dans la poutre
         ddl = np.delete(np.arange(3*self.beam.N_NODES), ddl_bloque, axis=0)
         self.beam.dF[:] = (F - self.beam.F) / self.NINC
@@ -318,12 +361,17 @@ class MEF():
 
             # Apres NR Un+1 = U_cur
             self.beam.u = u_cur.copy()
-            self.beam.evol_u[n, :] = u_cur.copy()
 
             if live_plot and n % self.draw_every == 0:
                 self._draw()
 
     def solve_increment_deplacement(self, U, noeud, ddl_bloque, live_plot):
+        """
+            Increments de déplacement avec correction Newton-Raphson.
+            Prescrit du = (U_cible - U_actuel) / NINC au noeud indiqué
+            à chaque incrément et corrige les DDL libres jusqu'à ||R||
+            < tol. Quitte si la convergence n'est pas atteinte en maxiter itérations.
+        """
         deltaU = U - self.beam.u[3*noeud:3*noeud+3]
         
         du = deltaU / self.NINC
@@ -372,12 +420,16 @@ class MEF():
                 quit()
 
             self.beam.u = u_cur.copy()
-            self.beam.evol_u[n, :] = self.beam.u.copy()
 
             if live_plot and n % self.draw_every == 0:
                 self._draw()
 
     def position_u(self, live_plot=False):
+        """
+            Déplace le dernier noeud vers POS_ENCASTREMENT1 en deux étapes pour éviter
+            les problèmes de convergence: d'abord en bloquant uniquement tita (laissant
+            x/y libres), puis en bloquant x, y et tita.
+        """
         noeuds_contraintes = {
             "1": 0,
             "2": -1
@@ -393,34 +445,27 @@ class MEF():
 
         # Noued qui bougera de forme arbitraire
         noeud_bouge = self.beam.N_NODES - 1
-        print(1)
+
         self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT1, noeud_bouge, live_plot=live_plot)
 
-        # FAIT EN 2 ETAPES POUR EVITER PROBLEMES DE CONVERGENCE
-        # LE MODÈLE DIVERGE SI ON BLOQUE LE DEPLACEMENT SUR AXIS X ET Y INITIALEMENT
         ddl_bloque = {
             "1": {"x": True, "y": True, "tita": True},
             "2": {"x": True, "y": True,  "tita": True}
         }
 
         liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
-        print(2)
-        self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT1, noeud_bouge, live_plot=live_plot)
-        """
-        ddl_bloque = {
-            "1": {"x": True, "y": True, "tita": True},
-            "2": {"x": True, "y": True,  "tita": True}
-        }
 
-        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
-        print(3)
         self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT1, noeud_bouge, live_plot=live_plot)
-        """
+
         if self.motors_connected:
             self.motors.angles = [0, 0, 0, 0]
 
     def condition_initiale(self, live_plot=False):
-        
+        """
+            Initialise la poutre en configuration verticale depuis POS_ENCASTREMENT2
+            et la déforme jusqu'à la position d'exploitation via position_u().
+            Réinitialise NINC=150 et draw_every=15 pour les solve suivants.
+        """
         self.beam.configuration_neutre(gamma=np.deg2rad(90),
                                        x0=constants.POS_ENCASTREMENT2[0],
                                        y0=constants.POS_ENCASTREMENT2[1])
@@ -437,6 +482,10 @@ class MEF():
         self.draw_every = 15
 
     def solve(self, type, ddl_bloques, U=np.zeros(1), noeud=0, F=np.zeros(1), live_plot=False):
+        """
+            Dispatcher: envoie vers solve_increment_charge (type='force')
+            ou solve_increment_deplacement (type='deplacement') selon le type d'increment.
+        """
         if type == "force":
             self.solve_increment_charge(ddl_bloques, F, live_plot)
         elif type == "deplacement":
@@ -444,6 +493,10 @@ class MEF():
         self._draw()
 
     def montrer_solution(self):
+        """
+            Affiche dans la console l'état nodal final (x, y, tita, L, q, F)
+            et rafraîchit le plot.
+        """
         print(f"\n\nConfiguration finale:\n")
         print(f"x = {self.beam.u[::3]*1000}")
         print(f"y = {self.beam.u[1::3]*1000}")
@@ -454,6 +507,10 @@ class MEF():
         self._draw()
 
     def parse_efforts(self, data):
+        """
+            Convertit le dictionnaire JSON d'efforts en vecteur global F de taille 3*N_NODES.
+            Format attendu: {"Node0": {"Fx": ..., "Fy": ..., "M": ...}, ...}
+        """
         vector = np.zeros(3 * self.beam.N_NODES)
 
         for i in range(self.beam.N_NODES):
@@ -466,6 +523,10 @@ class MEF():
         return vector
     
     def _start_camera_thread(self):
+        """
+            Lance un thread daemon qui interroge la caméra en continu et stocke
+            la dernière position des marqueurs dans _tracker_pos (accès thread-safe via lock).
+        """
         def _poll():
             while self.camera_connected:
                 try:
@@ -480,12 +541,22 @@ class MEF():
         t.start()
 
     def get_position_point_vert(self):
+        """
+            Retourne la dernière position connue du marqueur vert (array Nx2 en mm),
+            ou une liste vide si la caméra est déconnectée ou aucune donnée disponible.
+        """
         if not self.camera_connected:
             return []
         with self._tracker_lock:
             return self._tracker_pos.copy() if self._tracker_pos is not None else []
 
 def obtener_gdl_bloqueados_con_nombres(restricciones, numeracion_nodos, gdl_por_nodo=3):
+    """
+        Convertit un dictionnaire de contraintes nommées en liste d'indices de DDL globaux.
+        restrictiones:       {"nom_noeud": {"x": bool, "y": bool, "tita": bool}, ...}
+        numerotation_noeuds: {"nom_noeud": indice_noeud, ...}  (supporte les indices négatifs)
+        Retourne la liste des DDL bloqués.
+    """
     mapa_gdl = {
         "x": 0,
         "y": 1,
