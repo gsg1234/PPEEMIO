@@ -7,7 +7,7 @@ class Beam():
         self.haut = haut
         self.L0t = L0t
         self.YOUNG1 = YOUNG
-        self.YOUNG2 = YOUNG * 6                                 # Simuler elements 9 et 10 plus rigides
+        self.YOUNG2 = YOUNG * 1                                 # Simuler elements 9 et 10 plus rigides
         self.POID = 1220*large*haut*L0t
         self.AREA = large*haut
         self.INERTIA = (large*haut**3.0)/12.0
@@ -44,21 +44,24 @@ class Beam():
         self.B[2, 5, :] = 1.0
         
         # 3x3 Meme pour tous les elements parce que la section est constant
-        self.C1 = np.array([[1,      0     ,      0     ],
+        C1 = np.array([[1,      0     ,      0     ],
                             [0, 4*self.radius**2, 2*self.radius**2],
-                            [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG1 * self.AREA * (self.N_ELEM / self.L0t)
+                            [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG1 * self.AREA
         
         # Simuler elements 9 et 10 plus rigides
-        self.C2 = np.array([[1,      0     ,      0     ],
+        C2 = np.array([[1,      0     ,      0     ],
                             [0, 4*self.radius**2, 2*self.radius**2],
-                            [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG2 * self.AREA * (self.N_ELEM / self.L0t)
+                            [0, 2*self.radius**2, 4*self.radius**2]]) * self.YOUNG2 * self.AREA
         
-        self.C_all = np.broadcast_to(self.C1[:, :, np.newaxis], (3, 3, self.N_ELEM)).copy()
-        self.C_all[:, :, 9] = self.C2
+        self._C_base = np.broadcast_to(C1[:, :, np.newaxis], (3, 3, self.N_ELEM)).copy()
+
+        ix_elem_rigide = int(np.floor(self.N_ELEM/2))
+        
+        self._C_base[:, :, ix_elem_rigide] = C2
         #self.C_all[:, :, 10] = self.C2
 
         self.YOUNG_elem = np.full(self.N_ELEM, self.YOUNG1)
-        self.YOUNG_elem[9] = self.YOUNG2
+        self.YOUNG_elem[ix_elem_rigide] = self.YOUNG2
         #self.YOUNG_elem[10] = self.YOUNG2
 
         # 3(N_ELEM+1)x3(N_ELEM+1) Variationally consistent tangent stiffness matrix
@@ -69,30 +72,9 @@ class Beam():
 
         # 6x6xN_ELEM kt_sigma
         self.k_sigma = np.zeros((6, 6, self.N_ELEM))
-
-    def forces_externes(self):
-        # POID DISTRIBUÉ DE LA POUTRE
-        # Node sur encastrement
-        self.dF[0:3] += np.array([0, -self.POID*self.L0[0]/(self.L0t*2), 0]) / self.NINC
-
-        # Node internes
-        for i in range(1, self.N_NODES-1):
-            self.dF[3*i:3*i+3] += np.array([0, -self.POID*self.L0[0]/self.L0t, 0]) / self.NINC
-
-        # Derniere node
-        self.dF[-3:] += np.array([0, -self.POID*self.L0[0]/(self.L0t*2), 0]) / self.NINC
-
-        # EFFORTS PONCTUELLES, fair += pour ne pas suscrire le poid de la poutre
-        # Panier
-        #self.dF[-2] += -0.015 / self.NINC            # Force pour poid
-        #self.dF[-1] += -0.015*0.0335 / self.NINC     # Traslation du poid de panier de CM au dernier noeud
-
-        # Poids de 3.5g
-        #self.dF[-2] += -1*0.0035 / self.NINC          # Force pour poid
-        #self.dF[-1] += -0*0.0035*0.062 / self.NINC    # Traslation de la force de CM au dernier noeud
-
-    def configuration_neutre(self, gamma, x0, y0):        
-        #VIGA RECTA
+    
+    def configuration_neutre(self, gamma, x0, y0):
+        # POUTRE ENCASTRE DANS 2 BOUTS
         """
             part1 va depuis l'encastrement jusqu'au debut de liason rigide
             part2 va depuis la fin de la partie rigide jusqu'au dernier noeud
@@ -105,6 +87,7 @@ class Beam():
 
         self.u[::3] = np.concatenate((part1X, part2X))
         self.u[1::3] = np.concatenate((part1Y, part2Y))
+
         self.u[2::3] = np.zeros(self.N_NODES)
 
         # Construction beta en function de la configuration initiale
@@ -115,13 +98,17 @@ class Beam():
         self.Beta_0 = np.arctan2(y2 - y1, x2 - x1)
         self.L0 = np.sqrt((x2-x1)**2 + (y2-y1)**2)
 
+        self.C_all = self._C_base / self.L0
+
         self.cos = np.cos(self.Beta_0)
         self.sin = np.sin(self.Beta_0)
 
         self.z = np.array([self.sin, -self.cos, np.zeros(self.N_ELEM), -self.sin,  self.cos, np.zeros(self.N_ELEM)])
         self.r = np.array([self.cos,  self.sin, np.zeros(self.N_ELEM), -self.cos, -self.sin, np.zeros(self.N_ELEM)])
 
-    def actualiser_ks(self):
+        self.actualiser_b()
+
+    def actualiser_b(self):
         sin_L = self.sin/self.L
         cos_L = self.cos/self.L
 
@@ -140,6 +127,9 @@ class Beam():
         self.B[2, 1, :] = cos_L
         self.B[2, 3, :] = sin_L
         self.B[2, 4, :] = -cos_L
+
+    def actualiser_ks(self):
+        self.actualiser_b()
 
         """
         self.B = np.array([[       -self.cos,        -self.sin,  np.zeros(N_ELEM),        self.cos,         self.sin, np.zeros(N_ELEM)],

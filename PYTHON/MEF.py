@@ -208,7 +208,7 @@ class MEF():
             if self.motors_connected:
                 self.motors.angles = [0, -self.beam.tita1, 0, -self.beam.tita3]
 
-            self.solve("deplacement", liste_ddl_bloque, pos_direc_enc1, 19, live_plot=True)
+            self.solve("deplacement", liste_ddl_bloque, pos_direc_enc1, self.beam.N_NODES-1, live_plot=True)
 
             point_vert = self.get_position_point_vert()
             if len(point_vert) > 0:
@@ -243,7 +243,7 @@ class MEF():
             V = np.where(nonzero, Fy / safe_mag * scale, 0.0)
             self._quiver = self.ax.quiver(x, y, U, V, mag,
                                           cmap='brg', angles='xy',
-                                          scale_units='xy', scale=1, width=0.006, clim=(0, 1))
+                                          scale_units='xy', scale=1, width=0.004, clim=(0, 1))
             self.fig.colorbar(self._quiver, cax=self._cbar_ax, label='|F| [N]')
 
         point_vert = self.get_position_point_vert()
@@ -331,7 +331,6 @@ class MEF():
         ddl = np.delete(np.arange(3*self.beam.N_NODES), ddl_bloque, axis=0)
 
         for n in range(self.NINC):
-            print(f"Increment {n+1}/{self.NINC}")
             self.beam.u[3*noeud:3*noeud+3] += du
             tita, ul = self.beam.actualiser_conf(self.beam.u)
             self.beam.actualiser_iforces(tita=tita, ul=ul)
@@ -394,7 +393,7 @@ class MEF():
 
         # Noued qui bougera de forme arbitraire
         noeud_bouge = self.beam.N_NODES - 1
-
+        print(1)
         self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT1, noeud_bouge, live_plot=live_plot)
 
         # FAIT EN 2 ETAPES POUR EVITER PROBLEMES DE CONVERGENCE
@@ -405,12 +404,21 @@ class MEF():
         }
 
         liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
-
+        print(2)
         self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT1, noeud_bouge, live_plot=live_plot)
+        """
+        ddl_bloque = {
+            "1": {"x": True, "y": True, "tita": True},
+            "2": {"x": True, "y": True,  "tita": True}
+        }
 
+        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+        print(3)
+        self.solve("deplacement", liste_ddl_bloque, constants.POS_ENCASTREMENT1, noeud_bouge, live_plot=live_plot)
+        """
         if self.motors_connected:
             self.motors.angles = [0, 0, 0, 0]
-            
+
     def condition_initiale(self, live_plot=False):
         
         self.beam.configuration_neutre(gamma=np.deg2rad(90),
