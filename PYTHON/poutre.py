@@ -3,13 +3,13 @@ from mpl_interactions import ioff, panhandler, zoom_factory
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 
-from MEF import obtener_gdl_bloqueados_con_nombres
+from MEF import obtenir_liste_ddl_contraintes
 import constants
 
 np.set_printoptions(suppress=True,linewidth=None)
 
 class MEF():
-    def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol, mode='fs'):
+    def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol, x0=0, y0=0, tita0=0, mode='fs'):
         # Parametres de la poutre
         self.large = large
         self.haut = haut
@@ -52,10 +52,8 @@ class MEF():
         self.zr = np.zeros((6, 6, N_ELEM))
         self.rz = np.zeros((6, 6, N_ELEM))
 
-        tita0 = 90
-
-        self.u[0::3] = np.linspace(-0.125, -0.125+self.L0t*np.cos(np.deg2rad(tita0)), self.N_NODES)
-        self.u[1::3] = np.linspace(0, -self.L0t*np.sin(np.deg2rad(tita0)), self.N_NODES)
+        self.u[0::3] = np.linspace(x0, x0+self.L0t*np.cos(np.deg2rad(tita0)), self.N_NODES)
+        self.u[1::3] = np.linspace(y0, y0-self.L0t*np.sin(np.deg2rad(tita0)), self.N_NODES)
 
         # Construction beta0 en function de la configuration initiale
         x1 = self.u[0:-3:3]
@@ -230,7 +228,7 @@ class MEF():
         for i in range(self.N_ELEM):
             self.q[3*i:3*i+6] += np.matmul(self.B[:, :, i].T, self.ql[3*i:3*i+3])
 
-    def solve(self):
+    def solve_increment_charge(self):
         self.forces_externes()
         # Loop dF
         for n in range(self.NINC): 
@@ -344,7 +342,7 @@ class MEF():
         }
 
         # Liste de ddl contraintes par conditions de countour
-        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+        liste_ddl_bloque = obtenir_liste_ddl_contraintes(ddl_bloque, noeuds_contraintes)
 
         # Noued qui bougera de forme arbitraire
         noeud_bouge = 20
@@ -358,7 +356,7 @@ class MEF():
             "2": {"x": True, "y": True,  "tita": True}
         }
 
-        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+        liste_ddl_bloque = obtenir_liste_ddl_contraintes(ddl_bloque, noeuds_contraintes)
 
         self.solve_increment_deplacement(U=constants.POS_ENCASTREMENT1, noeud=noeud_bouge, ddl_bloque=liste_ddl_bloque)
 

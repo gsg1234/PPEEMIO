@@ -210,7 +210,7 @@ class MEF():
 
             # Position du noeud encatré au moteur [x, y, tita]
             # On utilise -tita pour avoir une rotation counterclock wise quand tita est positif
-            # comme dans l'equivalent rigid
+            # comme dans l'equivalent rigid, parce que dans la vue du plot, le moteur 3 est vue depuis l'arriere.
             pos_direc_enc3 = np.hstack((pos_enc3, -self.beam.tita3))
 
             # Dictionare avec noeuds qui ont au moins 1 DDL contrainte
