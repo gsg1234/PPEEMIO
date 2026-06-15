@@ -3,13 +3,13 @@ from mpl_interactions import ioff, panhandler, zoom_factory
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 
-from MEF import obtener_gdl_bloqueados_con_nombres
+from MEF import obtenir_liste_ddl_contraintes
 import constants
 
 np.set_printoptions(suppress=True,linewidth=None)
 
 class MEF():
-    def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol, mode='fs'):
+    def __init__(self, large, haut, L0t, YOUNG, N_ELEM, NINC, maxiter, tol, x0=0, y0=0, tita0=0, mode='fs'):
         # Parametres de la poutre
         self.large = large
         self.haut = haut
@@ -52,10 +52,8 @@ class MEF():
         self.zr = np.zeros((6, 6, N_ELEM))
         self.rz = np.zeros((6, 6, N_ELEM))
 
-        tita0 = 90
-
-        self.u[0::3] = np.linspace(-0.125, -0.125+self.L0t*np.cos(np.deg2rad(tita0)), self.N_NODES)
-        self.u[1::3] = np.linspace(0, -self.L0t*np.sin(np.deg2rad(tita0)), self.N_NODES)
+        self.u[0::3] = np.linspace(x0, x0+self.L0t*np.cos(np.deg2rad(tita0)), self.N_NODES)
+        self.u[1::3] = np.linspace(y0, y0-self.L0t*np.sin(np.deg2rad(tita0)), self.N_NODES)
 
         # Construction beta0 en function de la configuration initiale
         x1 = self.u[0:-3:3]
@@ -74,6 +72,8 @@ class MEF():
         self.B = np.zeros((3, 6, N_ELEM))
         self.B[1, 2, :] = 1.0
         self.B[2, 5, :] = 1.0
+
+        self.actualiser_b()
         
         # 3x3 Meme pour tous les elements parce que la section est constant
         self.C = np.array([[1,      0     ,      0     ],
@@ -113,11 +113,15 @@ class MEF():
         #self.dF[-2] = -4448.0 / self.NINC
         
         
-    def actualiser_ks(self):
+    def actualiser_b(self):
+        """
+            Met à jour la matrice de transformation corotationnelle B (3x6xN_ELEM)
+            à partir des valeurs courantes de cos, sin et L.
+            Appelée depuis actualiser_ks().
+        """
         sin_L = self.sin/self.L
         cos_L = self.cos/self.L
 
-        # Actualiser B avec la nouveau configuration des elements
         self.B[0, 0, :] = -self.cos
         self.B[0, 1, :] = -self.sin
         self.B[0, 3, :] = self.cos
@@ -133,11 +137,13 @@ class MEF():
         self.B[2, 3, :] = sin_L
         self.B[2, 4, :] = -cos_L
 
+    def actualiser_ks(self):
         """
-        self.B = np.array([[       -self.cos,        -self.sin,  np.zeros(N_ELEM),        self.cos,         self.sin, np.zeros(N_ELEM)],
-                           [-self.sin/self.L,  self.cos/self.L,   np.ones(N_ELEM), self.sin/self.L, -self.cos/self.L, np.zeros(N_ELEM)],
-                           [-self.sin/self.L,  self.cos/self.L,  np.zeros(N_ELEM), self.sin/self.L, -self.cos/self.L,  np.ones(N_ELEM)]])
+            Assemble la matrice de rigidité tangente globale K = kt + k_sigma.
+            kt = B^T C B  (rigidité matérielle, via einsum)
+            k_sigma       (rigidité géométrique, fonction de N, M1, M2 courants)
         """
+        self.actualiser_b()
 
         # Clear matrice Ks
         self.K.fill(0)
@@ -222,7 +228,7 @@ class MEF():
         for i in range(self.N_ELEM):
             self.q[3*i:3*i+6] += np.matmul(self.B[:, :, i].T, self.ql[3*i:3*i+3])
 
-    def solve(self):
+    def solve_increment_charge(self):
         self.forces_externes()
         # Loop dF
         for n in range(self.NINC): 
@@ -336,7 +342,7 @@ class MEF():
         }
 
         # Liste de ddl contraintes par conditions de countour
-        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+        liste_ddl_bloque = obtenir_liste_ddl_contraintes(ddl_bloque, noeuds_contraintes)
 
         # Noued qui bougera de forme arbitraire
         noeud_bouge = 20
@@ -350,7 +356,7 @@ class MEF():
             "2": {"x": True, "y": True,  "tita": True}
         }
 
-        liste_ddl_bloque = obtener_gdl_bloqueados_con_nombres(ddl_bloque, noeuds_contraintes)
+        liste_ddl_bloque = obtenir_liste_ddl_contraintes(ddl_bloque, noeuds_contraintes)
 
         self.solve_increment_deplacement(U=constants.POS_ENCASTREMENT1, noeud=noeud_bouge, ddl_bloque=liste_ddl_bloque)
 

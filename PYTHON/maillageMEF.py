@@ -1,9 +1,7 @@
-from MEF import MEF
+from poutre import MEF
 import cProfile
 import pstats
 import matplotlib.pyplot as plt
-
-
 
 
 if __name__ == "__main__":
@@ -15,13 +13,9 @@ if __name__ == "__main__":
         print(f"N = {n}")
         n_elem.append(n)
 
-        solver = MEF(large=0.01, haut=0.005, L0t=0.2, YOUNG=10e6, N_ELEM=n, NINC=75, maxiter=50, tol=0.001)
+        solver = MEF(large=0.01, haut=0.005, L0t=0.2, YOUNG=5.64e6, N_ELEM=n, NINC=150, maxiter=50, tol=0.001)
         with cProfile.Profile() as profile:
-            conv = solver.solve()        
-
-        if conv == -1:
-            print("No convergence")
-            quit()
+            solver.solve_increment_charge()
 
         results = pstats.Stats(profile)
         pData = results.get_stats_profile()
