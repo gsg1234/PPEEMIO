@@ -189,7 +189,7 @@ class MEF():
         if self.camera_connected:
             self.camera.update()
             point_vert = self.get_position_point_vert()
-            if len(point_vert) > 0:
+            if point_vert is not None:
                 self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
                 self._point_vert.set_visible(True)
                 self.fig.canvas.draw_idle()
@@ -236,7 +236,7 @@ class MEF():
 
             # Lire position du marqueur vert
             point_vert = self.get_position_point_vert()
-            if len(point_vert) > 0:
+            if point_vert is not None:
                 self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
                 self._point_vert.set_visible(True)
                 self.fig.canvas.draw_idle()
@@ -283,7 +283,7 @@ class MEF():
 
             # Lire position du marqueur vert
             point_vert = self.get_position_point_vert()
-            if len(point_vert) > 0:
+            if point_vert is not None:
                 self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
                 self._point_vert.set_visible(True)
                 self.fig.canvas.draw_idle()
@@ -327,7 +327,7 @@ class MEF():
         
         # Lire position du marqueur vert
         point_vert = self.get_position_point_vert()
-        if len(point_vert) > 0:
+        if point_vert is not None:
             self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
             self._point_vert.set_visible(True)
 
@@ -412,7 +412,7 @@ class MEF():
             if live_plot and n % self.draw_every == 0:
                 self._draw()
 
-    def solve_increment_deplacement(self, U, noeud, ddl_bloque, live_plot):
+    def solve_increment_deplacement(self, U, noeud, liste_ddl_contraintes, live_plot):
         """
             Increments de déplacement avec correction Newton-Raphson.
             Prescrit du = (U_cible - U_actuel) / NINC au noeud indiqué
@@ -426,7 +426,7 @@ class MEF():
         du = deltaU / self.NINC
 
         # Obtension d'un liste des ddl dans la poutre
-        ddl = np.delete(np.arange(3*self.beam.N_NODES), ddl_bloque, axis=0)
+        ddl = np.delete(np.arange(3*self.beam.N_NODES), liste_ddl_contraintes, axis=0)
 
         # Loop increment de deplacement
         for n in range(self.NINC):
@@ -535,15 +535,15 @@ class MEF():
         # Configuration droite sans deformations et efforts internes
         # Dans ce cas verticale
         self.beam.configuration_neutre(gamma=np.deg2rad(90),
-                                       x0=constants.POS_ENCASTREMENT2[0],
-                                       y0=constants.POS_ENCASTREMENT2[1])
+                                       x0=constants.POS_ENCASTREMENT3[0],
+                                       y0=constants.POS_ENCASTREMENT3[1])
         
         # Deplacement du dernier noeud pour obtenir configuration initiale en U
         self.position_u(live_plot=live_plot)
         
         # Lire position du marqueur vert
         point_vert = self.get_position_point_vert()
-        if len(point_vert) > 0:
+        if point_vert is not None:
             self._point_vert.set_center((point_vert[0, 0], point_vert[0, 1]))
             self._point_vert.set_visible(True)
             self.fig.canvas.draw_idle()
@@ -555,15 +555,15 @@ class MEF():
         self.NINC = 150
         self.draw_every = 15
 
-    def solve(self, type, ddl_bloques, U=np.zeros(1), noeud=0, F=np.zeros(1), live_plot=False):
+    def solve(self, type, liste_ddl_contraintes, U: np.ndarray = np.zeros(1), noeud=0, F: np.ndarray = np.zeros(1), live_plot=False):
         """
             Dispatcher: envoie vers solve_increment_charge (type='force')
             ou solve_increment_deplacement (type='deplacement') selon le type d'increment.
         """
         if type == "force":
-            self.solve_increment_charge(ddl_bloques, F, live_plot)
+            self.solve_increment_charge(liste_ddl_contraintes, F, live_plot)
         elif type == "deplacement":
-            self.solve_increment_deplacement(U, noeud, ddl_bloques, live_plot)
+            self.solve_increment_deplacement(U, noeud, liste_ddl_contraintes, live_plot)
         self._draw()
 
     def montrer_solution(self):
@@ -614,15 +614,15 @@ class MEF():
         t = threading.Thread(target=_poll, daemon=True)
         t.start()
 
-    def get_position_point_vert(self):
+    def get_position_point_vert(self) -> np.ndarray | None:
         """
             Retourne la dernière position connue du marqueur vert (array Nx2 en mm),
             ou une liste vide si la caméra est déconnectée ou aucune donnée disponible.
         """
         if not self.camera_connected:
-            return []
+            return None
         with self._tracker_lock:
-            return self._tracker_pos.copy() if self._tracker_pos is not None else []
+            return self._tracker_pos.copy() if self._tracker_pos is not None else None
 
 def obtenir_liste_ddl_contraintes(ddl_contraintes, noeuds_contraintes, ddl_par_noeud=3):
     """
