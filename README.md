@@ -6,7 +6,7 @@ Ce dépôt regroupe les travaux réalisés dans le cadre du projet PPE autour du
 
 ## EQRIGIDE — Robot équivalent rigide
 
-`EQRIGIDE` modélise le robot EMIO comme un mécanisme **rigide**. Il calcule la géométrie directe et inverse du bras, visualise l'espace de travail et permet de contrôler le robot physique via une interface graphique.
+`EQRIGIDE` modelise le robot equivalent rigide. Il calcule la géométrie directe et inverse du bras, visualise l'espace de travail et permet de contrôler le robot physique via une interface graphique.
 
 Le dossier `Codes/` contient des scripts de développement intermédiaires. Le dossier `Codes/CodesFinales/` contient les codes aboutis utilisés pour la communication avec le robot.
 
