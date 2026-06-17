@@ -1,0 +1,4 @@
+POSIBLES MEJORAS:
+    - Interpolacion en nodos empotrados siguiendo una circunferencia
+    - Graficar punto en centro de pieza rigida
+    - Mejor interfaz para cargar esfuerzos externos al modelo
